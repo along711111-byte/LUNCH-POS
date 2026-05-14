@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>午餐結算</title>
+    <title>午餐結算 - 極速版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { color-scheme: dark; }
@@ -18,8 +18,8 @@
         .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); } 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         
-        /* 雲端讀取時的遮罩 */
-        #loading-overlay { position: fixed; inset: 0; background: rgba(17,24,39,0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; items-center; color: white; text-align: center; }
+        /* 雲端讀取時的遮罩 (只在第一次開網頁時顯示) */
+        #loading-overlay { position: fixed; inset: 0; background: rgba(17,24,39,1); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; }
     </style>
     <!-- 引入 Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -30,8 +30,7 @@
     <!-- 載入中遮罩 -->
     <div id="loading-overlay">
         <div class="text-4xl mb-4 animate-bounce">☁️</div>
-        <h2 class="text-xl font-bold tracking-widest text-blue-400">連線至雲端資料庫...</h2>
-        <p class="text-gray-400 mt-2 text-sm">正在同步您的午餐設定</p>
+        <h2 class="text-xl font-bold tracking-widest text-blue-400">正在同步資料...</h2>
     </div>
 
     <!-- 頂部 Header -->
@@ -161,29 +160,25 @@
         firebase.initializeApp(firebaseConfig);
         const fdb = firebase.firestore();
 
-        // 2. 雲端資料暫存區
         let appData = { employees: [], stores: [], orders: [] };
         let selectedEmps = []; 
         let currentCart = [];  
         let selectedDate = ""; 
 
-        // 取得當地時間
         function getLocalISODate() {
             const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
             return d.toISOString().split('T')[0];
         }
 
-        // ================= 雲端同步系統 =================
         window.onload = async () => {
             selectedDate = getLocalISODate();
             document.getElementById('order-date').value = selectedDate;
             document.getElementById('display-selected-date').innerText = selectedDate.substring(5);
             
             try {
-                await syncSettingsFromCloud(); // 抓取員工與店家設定
-                await syncOrdersFromCloud();   // 抓取今日訂單
+                await syncSettingsFromCloud(); 
+                await syncOrdersFromCloud();   
                 
-                // 隱藏載入畫面並啟動系統
                 document.getElementById('loading-overlay').style.display = 'none';
                 initStoreSelector();
                 renderAll();
@@ -193,7 +188,6 @@
             }
         };
 
-        // 從雲端抓取設定 (員工、店家)
         async function syncSettingsFromCloud() {
             const docRef = fdb.collection("System").doc("Settings");
             const docSnap = await docRef.get();
@@ -202,28 +196,20 @@
                 appData.employees = data.employees || [];
                 appData.stores = data.stores || [];
             } else {
-                // 如果是全新專案，寫入測試資料
-                appData.employees = [
-                    { name: '王小明', balance: 0 }, { name: '阿迪', balance: 0 }
-                ];
-                appData.stores = [
-                    { id: 's1', name: '測試便當店', menu: [{name: '排骨飯', price: 100}] }
-                ];
+                appData.employees = [ { name: '王小明', balance: 0 }, { name: '阿迪', balance: 0 } ];
+                appData.stores = [ { id: 's1', name: '測試便當店', menu: [{name: '排骨飯', price: 100}] } ];
                 await docRef.set({ employees: appData.employees, stores: appData.stores });
             }
         }
 
-        // 從雲端抓取指定日期的訂單
         async function syncOrdersFromCloud() {
             const snapshot = await fdb.collection("Orders").where("date", "==", selectedDate).get();
             appData.orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
 
-        // 將修改後的設定存回雲端
         async function saveSettingsToCloud() {
             await fdb.collection("System").doc("Settings").set({
-                employees: appData.employees,
-                stores: appData.stores
+                employees: appData.employees, stores: appData.stores
             });
         }
 
@@ -233,13 +219,12 @@
             document.getElementById('display-selected-date').innerText = selectedDate.substring(5);
             selectedEmps = []; currentCart = [];
             
-            await syncOrdersFromCloud(); // 重新抓取該日期的訂單
+            await syncOrdersFromCloud(); 
             
             document.getElementById('loading-overlay').style.display = 'none';
             renderAll();
         }
 
-        // ================= 介面操作系統 =================
         function switchTab(viewId) {
             document.querySelectorAll('main > div').forEach(div => { if(div.id.startsWith('view-')) div.classList.add('hidden-view'); });
             document.getElementById(viewId).classList.remove('hidden-view');
@@ -287,7 +272,7 @@
                 
                 btn.classList.remove('bg-gray-800', 'text-gray-500', 'pointer-events-none', 'border-gray-700');
                 btn.classList.add('bg-blue-600', 'text-white', 'border-blue-500', 'shadow-[0_0_15px_rgba(37,99,235,0.4)]');
-                btn.innerText = `確認送出 (寫入雲端)`;
+                btn.innerText = `確認送出`;
             } else {
                 splitInfo.innerText = "";
                 btn.classList.add('bg-gray-800', 'text-gray-500', 'pointer-events-none', 'border-gray-700');
@@ -296,58 +281,85 @@
             }
         }
 
-        // --- 核心寫入邏輯 ---
+        // ================= ★ 樂觀更新 (極速點餐) 核心邏輯 ★ =================
         async function submitCart() {
             let total = currentCart.reduce((sum, item) => sum + item.price, 0);
             let perPersonAmount = Math.round(total / selectedEmps.length);
             let foodNames = currentCart.map(item => item.name).join(' + ');
             let note = (selectedEmps.length > 1 && total > 0) ? ' (共食)' : '';
+            let sharedCount = selectedEmps.length;
             
-            document.getElementById('loading-overlay').style.display = 'flex'; // 顯示寫入中
+            // 備份資料給背景非同步使用
+            let backupEmps = [...selectedEmps];
+            let backupCart = JSON.parse(JSON.stringify(currentCart));
 
+            // 1. 【本地樂觀更新】直接改畫面，不顯示 Loading！
+            backupEmps.forEach(empName => {
+                let tempId = 'temp_' + Date.now() + Math.random(); // 給一個暫存 ID
+                appData.orders.push({ 
+                    id: tempId,
+                    date: selectedDate, 
+                    empName: empName, 
+                    food: foodNames + note, 
+                    price: perPersonAmount,
+                    items: backupCart, 
+                    shared: sharedCount
+                });
+                
+                let emp = appData.employees.find(e => e.name === empName);
+                if(emp) emp.balance -= perPersonAmount;
+            });
+
+            // 清空選擇並立刻重新畫圖，讓使用者覺得「瞬間完成」
+            selectedEmps = []; 
+            currentCart = [];
+            renderAll();
+
+            // 2. 【背景並行同步】偷偷傳給雲端
             try {
-                // 1. 將每個人的訂單獨立寫入 Firebase
-                for (const empName of selectedEmps) {
-                    await fdb.collection("Orders").add({ 
+                // 使用 Promise.all 讓所有連線同時發送，不用排隊
+                let writePromises = backupEmps.map(empName => {
+                    return fdb.collection("Orders").add({ 
                         date: selectedDate, 
                         empName: empName, 
                         food: foodNames + note, 
                         price: perPersonAmount,
-                        items: JSON.parse(JSON.stringify(currentCart)), 
-                        shared: selectedEmps.length,
+                        items: backupCart, 
+                        shared: sharedCount,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    
-                    // 2. 扣除本地員工餘額
-                    let emp = appData.employees.find(e => e.name === empName);
-                    if(emp) emp.balance -= perPersonAmount;
-                }
-
-                // 3. 把扣款後的新餘額存回雲端
-                await saveSettingsToCloud();
-
-                selectedEmps = []; currentCart = [];
-                await syncOrdersFromCloud(); // 重新抓取這天的訂單
+                });
                 
-            } catch(e) { alert("寫入失敗！"); console.error(e); }
-
-            document.getElementById('loading-overlay').style.display = 'none';
-            renderAll();
+                await Promise.all(writePromises); // 同時寫入所有訂單
+                await saveSettingsToCloud();      // 儲存最新的扣款餘額
+                
+                // 背景再偷偷把包含真實 Firebase ID 的資料抓下來替換掉 tempId (不影響畫面)
+                syncOrdersFromCloud(); 
+                
+            } catch(e) { console.error("背景同步失敗:", e); }
         }
 
         async function cancelOrder(orderId, empName, price) {
             let isSkip = price === 0;
             if(confirm(isSkip ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${price} 退回給 ${empName} 嗎？`)) {
-                document.getElementById('loading-overlay').style.display = 'flex';
+                
+                // 1. 【本地樂觀更新】瞬間刪除並退錢
+                const orderIndex = appData.orders.findIndex(o => o.id === orderId);
+                if(orderIndex > -1) appData.orders.splice(orderIndex, 1);
+                
+                let emp = appData.employees.find(e => e.name === empName);
+                if(emp) emp.balance += price;
+                
+                renderAll(); // 瞬間重畫畫面
+
+                // 2. 【背景同步】
                 try {
-                    await fdb.collection("Orders").doc(orderId).delete();
-                    let emp = appData.employees.find(e => e.name === empName);
-                    if(emp) emp.balance += price;
+                    if(!orderId.startsWith('temp_')) {
+                        await fdb.collection("Orders").doc(orderId).delete();
+                    }
                     await saveSettingsToCloud();
-                    await syncOrdersFromCloud();
-                } catch(e) { alert("退單失敗！"); }
-                document.getElementById('loading-overlay').style.display = 'none';
-                renderAll();
+                    syncOrdersFromCloud();
+                } catch(e) { console.error("背景退單失敗:", e); }
             }
         }
 
@@ -471,12 +483,12 @@
             .catch(err => { alert("複製失敗，請手動複製。\n" + text); });
         }
 
-        // --- 設定修改並寫入雲端 ---
+        // --- 設定頁面也要背景儲存 ---
         async function updateSettingsAction(actionFn) {
-            document.getElementById('loading-overlay').style.display = 'flex';
-            try { actionFn(); await saveSettingsToCloud(); renderAll(); } 
-            catch(e) { alert("儲存失敗！"); }
-            document.getElementById('loading-overlay').style.display = 'none';
+            actionFn(); 
+            renderAll(); // 瞬間更新畫面
+            try { await saveSettingsToCloud(); } // 背景儲存
+            catch(e) { console.error("設定儲存失敗", e); }
         }
 
         function renderSettings() {
