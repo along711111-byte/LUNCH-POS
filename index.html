@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>午餐結算 - 日式鍋物版</title>
+    <title>午餐結算 - 企業總表版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { 
@@ -29,6 +29,10 @@
         
         .nav-active { color: #C85A44; }
         .nav-inactive { color: #B0A09A; }
+        
+        input[type=checkbox] { accent-color: #C85A44; width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 1px solid #e5e7eb; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
         
         .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); } 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
@@ -60,16 +64,14 @@
         <div id="view-pos" class="space-y-6">
             <div class="relative">
                 <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20"></select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-[#C85A44]">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-[#C85A44]"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
             </div>
 
             <div class="glass-panel p-5 rounded-3xl">
                 <div class="mb-5">
                     <h2 class="theme-text font-bold mb-3 text-sm tracking-wide flex items-center">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                        選擇對象 <span class="text-xs text-stone-400 font-normal ml-2">(可多選平分)</span>
+                        選擇對象 <span class="text-xs text-stone-400 font-normal ml-2">(可多選批量點餐)</span>
                     </h2>
                     <div id="pending-employees" class="grid grid-cols-3 gap-2.5"></div>
                 </div>
@@ -88,6 +90,12 @@
             </div>
 
             <div class="theme-gradient p-5 rounded-3xl shadow-[0_10px_25px_rgba(200,90,68,0.25)] sticky bottom-4 z-10">
+                <div id="split-toggle-container" class="hidden mb-3 pb-3 border-b border-white/20">
+                    <label class="flex items-center space-x-2 text-white text-sm font-medium cursor-pointer">
+                        <input type="checkbox" id="is-shared-order" onchange="updateCartUI()" class="rounded shadow-sm">
+                        <span>這單為共食 (平分總金額)</span>
+                    </label>
+                </div>
                 <div class="flex justify-between items-end mb-2">
                     <div id="split-info" class="text-xs text-orange-100 font-medium h-4"></div>
                     <div class="text-right">
@@ -114,13 +122,19 @@
                         </span>
                         <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
                     </div>
+                    <!-- 點餐明細列表 -->
                     <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
+                    <!-- 新增：溫馨核對區塊 -->
+                    <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold">
+                        <!-- JS自動產生 -->
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ================= 分頁 2：帳務存摺 ================= -->
-        <div id="view-ledger" class="hidden-view space-y-6">
+        <div id="view-ledger" class="hidden-view space-y-5">
+            
             <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-3xl flex justify-between items-center border border-orange-100 shadow-sm opacity-95">
                 <div class="flex flex-col">
                     <span class="text-[11px] text-orange-600 font-bold mb-1 tracking-wider flex items-center">
@@ -131,20 +145,55 @@
                 </div>
                 <div class="text-right">
                     <span id="admin-cash-on-hand" class="text-2xl font-black text-orange-500">$0</span>
-                    <p id="admin-cash-note" class="text-[10px] text-stone-400 mt-1"></p>
                 </div>
             </div>
 
-            <button onclick="shareToLine()" class="btn-active w-full bg-white text-[#C85A44] border border-orange-200 py-4 rounded-2xl font-bold shadow-sm flex justify-center items-center hover:bg-orange-50 transition opacity-95">
-                <svg class="w-5 h-5 mr-2 text-[#06C755]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 10.3c0-4.3-4.2-7.8-9.4-7.8-5.2 0-9.4 3.5-9.4 7.8 0 3.8 2.6 7 6.3 7.6l1.3.4s-.4 1.4-.4 1.6c-.1.5.3.8.3.8l3.6-2.4 1.3-.9c1.9.1 6.4-2.7 6.4-7.1z"/></svg>
-                複製結算清單至 LINE
-            </button>
+            <!-- 全新按鈕區域：分享 LINE / 匯出 Excel -->
+            <div class="flex space-x-3 mb-6">
+                <button onclick="shareToLine()" class="btn-active w-1/2 bg-white text-[#C85A44] border border-orange-200 py-3.5 rounded-2xl font-bold shadow-sm flex flex-col justify-center items-center hover:bg-orange-50 transition opacity-95">
+                    <svg class="w-6 h-6 mb-1 text-[#06C755]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 10.3c0-4.3-4.2-7.8-9.4-7.8-5.2 0-9.4 3.5-9.4 7.8 0 3.8 2.6 7 6.3 7.6l1.3.4s-.4 1.4-.4 1.6c-.1.5.3.8.3.8l3.6-2.4 1.3-.9c1.9.1 6.4-2.7 6.4-7.1z"/></svg>
+                    <span class="text-xs">分享本日 LINE</span>
+                </button>
+                <!-- 改用 exportToExcel() -->
+                <button onclick="exportToExcel()" class="btn-active w-1/2 bg-[#C85A44] text-white py-3.5 rounded-2xl font-bold shadow-md flex flex-col justify-center items-center hover:bg-[#a64835] transition">
+                    <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span class="text-xs">下載本月 Excel</span>
+                </button>
+            </div>
 
-            <div class="glass-panel rounded-3xl overflow-hidden">
+            <!-- 快速收款 -->
+            <div class="glass-panel p-5 rounded-3xl">
+                <h3 class="theme-text font-bold text-sm mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    新增收款作業
+                </h3>
+                <div class="flex space-x-2">
+                    <select id="topup-emp" class="flex-grow bg-white border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700"></select>
+                    <input type="number" id="topup-amount" placeholder="金額" class="w-24 bg-white border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700">
+                    <button onclick="submitTopup()" class="btn-active bg-[#C85A44] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">收款</button>
+                </div>
+            </div>
+
+            <!-- 全體員工餘額表 -->
+            <div class="glass-panel rounded-3xl overflow-hidden mt-6">
+                <div class="bg-orange-50/80 px-4 py-3 border-b border-orange-100">
+                    <h3 class="text-xs font-bold theme-text">全體員工餘額表</h3>
+                </div>
                 <table class="w-full text-left border-collapse">
                     <tbody id="ledger-table" class="divide-y divide-orange-100/50"></tbody>
                 </table>
             </div>
+
+            <details class="group bg-white/80 rounded-2xl border border-orange-100 shadow-sm overflow-hidden mt-6 transition-all duration-300">
+                <summary class="flex justify-between items-center font-bold cursor-pointer list-none p-4 text-[#4A3E3D] outline-none">
+                    <span class="flex items-center text-sm">
+                        <svg class="w-4 h-4 mr-2 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        📝 收款歷史紀錄查閱 <span class="text-[10px] text-stone-400 font-normal ml-2">(點擊展開)</span>
+                    </span>
+                    <span class="transition group-open:rotate-180 text-stone-400"><svg fill="none" height="20" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M6 9l6 6 6-6"></path></svg></span>
+                </summary>
+                <div class="px-4 pb-4 pt-0 text-sm" id="topup-history"></div>
+            </details>
         </div>
 
         <!-- ================= 分頁 3：系統設定 ================= -->
@@ -153,7 +202,7 @@
                 <div class="flex justify-between items-center mb-5">
                     <h2 class="font-bold theme-text text-sm flex items-center">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                        員工餘額管理
+                        員工名單管理
                     </h2>
                     <button onclick="addEmployee()" class="text-xs text-[#C85A44] bg-orange-100 hover:bg-orange-200 px-3 py-1.5 rounded-full transition">+ 新增</button>
                 </div>
@@ -174,7 +223,6 @@
 
     </main>
 
-    <!-- 懸浮底部導覽列 -->
     <div class="fixed bottom-6 left-0 w-full px-5 z-50">
         <nav class="glass-nav rounded-2xl flex justify-around p-2.5 shadow-[0_8px_30px_rgba(100,70,50,0.12)] border border-orange-50">
             <button onclick="switchTab('view-pos')" id="tab-pos" class="flex flex-col items-center p-2 w-1/3 nav-active transition rounded-xl">
@@ -183,7 +231,7 @@
             </button>
             <button onclick="switchTab('view-ledger')" id="tab-ledger" class="flex flex-col items-center p-2 w-1/3 nav-inactive transition rounded-xl">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                <span class="text-[10px] font-bold tracking-wider">存摺</span>
+                <span class="text-[10px] font-bold tracking-wider">存摺與報表</span>
             </button>
             <button onclick="switchTab('view-settings')" id="tab-settings" class="flex flex-col items-center p-2 w-1/3 nav-inactive transition rounded-xl">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -205,10 +253,8 @@
         firebase.initializeApp(firebaseConfig);
         const fdb = firebase.firestore();
 
-        let appData = { employees: [], stores: [], orders: [] };
-        let selectedEmps = []; 
-        let currentCart = [];  
-        let selectedDate = ""; 
+        let appData = { employees: [], stores: [], orders: [], topups: [] };
+        let selectedEmps = []; currentCart = []; selectedDate = ""; 
 
         function getLocalISODate() {
             const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -222,7 +268,8 @@
             
             try {
                 await syncSettingsFromCloud(); 
-                await syncOrdersFromCloud();   
+                await syncOrdersFromCloud(); 
+                await syncTopupsFromCloud();  
                 document.getElementById('loading-overlay').style.display = 'none';
                 initStoreSelector();
                 renderAll();
@@ -246,6 +293,11 @@
         async function syncOrdersFromCloud() {
             const snapshot = await fdb.collection("Orders").where("date", "==", selectedDate).get();
             appData.orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+
+        async function syncTopupsFromCloud() {
+            const snapshot = await fdb.collection("Topups").orderBy("timestamp", "desc").limit(50).get();
+            appData.topups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
 
         async function saveSettingsToCloud() {
@@ -280,33 +332,42 @@
             selector.innerHTML = '';
             appData.stores.forEach(store => { selector.innerHTML += `<option value="${store.id}">選擇店家：${store.name}</option>`; });
         }
-
         function changeStore() { selectedEmps = []; currentCart = []; renderPOS(); }
-
         function toggleEmp(empName) {
             if (selectedEmps.includes(empName)) selectedEmps = selectedEmps.filter(n => n !== empName);
             else selectedEmps.push(empName);
             updateCartUI(); renderPOSLeft();
         }
-
-        function addToCart(foodName, price) {
-            currentCart.push({ name: foodName, price: price }); updateCartUI();
-        }
+        function addToCart(foodName, price) { currentCart.push({ name: foodName, price: price }); updateCartUI(); }
 
         function updateCartUI() {
             const btn = document.getElementById('submit-btn');
             const splitInfo = document.getElementById('split-info');
-            let total = currentCart.reduce((sum, item) => sum + item.price, 0);
-            document.getElementById('cart-total').innerText = `$${total}`;
+            const toggleDiv = document.getElementById('split-toggle-container');
+            const isShared = document.getElementById('is-shared-order').checked;
+            
+            if (selectedEmps.length > 1) toggleDiv.classList.remove('hidden');
+            else { toggleDiv.classList.add('hidden'); document.getElementById('is-shared-order').checked = false; }
+
+            let cartBaseTotal = currentCart.reduce((sum, item) => sum + item.price, 0);
+            let finalGrandTotal = 0;
 
             if (selectedEmps.length > 0 && currentCart.length > 0) {
-                if (total > 0 && selectedEmps.length > 1) {
-                    splitInfo.innerText = `${selectedEmps.length} 人平分，每人 -$${Math.round(total / selectedEmps.length)}`;
-                } else if (total === 0) {
-                    splitInfo.innerText = `狀態：不叫餐`;
+                if (selectedEmps.length > 1) {
+                    if (isShared) {
+                        finalGrandTotal = cartBaseTotal;
+                        let perPerson = Math.round(cartBaseTotal / selectedEmps.length);
+                        splitInfo.innerText = `☑️ 共食模式：總計 $${cartBaseTotal}，每人扣 $${perPerson}`;
+                    } else {
+                        finalGrandTotal = cartBaseTotal * selectedEmps.length;
+                        splitInfo.innerText = `📦 獨立叫餐：共 ${selectedEmps.length} 份，每人扣 $${cartBaseTotal}`;
+                    }
                 } else {
-                    splitInfo.innerText = `扣款名單：${selectedEmps.join(', ')}`;
+                    finalGrandTotal = cartBaseTotal;
+                    if(cartBaseTotal === 0) splitInfo.innerText = `狀態：不叫餐`;
+                    else splitInfo.innerText = `扣款名單：${selectedEmps[0]}`;
                 }
+                
                 btn.classList.remove('bg-white/20', 'text-orange-50', 'pointer-events-none');
                 btn.classList.add('bg-white', 'text-[#C85A44]', 'shadow-lg');
                 btn.innerText = `確認送出`;
@@ -316,36 +377,31 @@
                 btn.classList.remove('bg-white', 'text-[#C85A44]', 'shadow-lg');
                 btn.innerText = `請選擇餐點`;
             }
+            document.getElementById('cart-total').innerText = `$${finalGrandTotal}`;
         }
 
         async function submitCart() {
-            let total = currentCart.reduce((sum, item) => sum + item.price, 0);
-            let perPersonAmount = Math.round(total / selectedEmps.length);
+            let isShared = document.getElementById('is-shared-order').checked && selectedEmps.length > 1;
+            let cartBaseTotal = currentCart.reduce((sum, item) => sum + item.price, 0);
+            let perPersonAmount = isShared ? Math.round(cartBaseTotal / selectedEmps.length) : cartBaseTotal;
             let foodNames = currentCart.map(item => item.name).join(' + ');
-            let note = (selectedEmps.length > 1 && total > 0) ? ' (共食)' : '';
-            let sharedCount = selectedEmps.length;
+            let note = isShared ? ' (共食)' : '';
+            let sharedCount = isShared ? selectedEmps.length : 1;
             
             let backupEmps = [...selectedEmps];
             let backupCart = JSON.parse(JSON.stringify(currentCart));
 
             backupEmps.forEach(empName => {
                 let tempId = 'temp_' + Date.now() + Math.random(); 
-                appData.orders.push({ 
-                    id: tempId, date: selectedDate, empName: empName, 
-                    food: foodNames + note, price: perPersonAmount, items: backupCart, shared: sharedCount
-                });
+                appData.orders.push({ id: tempId, date: selectedDate, empName: empName, food: foodNames + note, price: perPersonAmount, items: backupCart, shared: sharedCount });
                 let emp = appData.employees.find(e => e.name === empName);
                 if(emp) emp.balance -= perPersonAmount;
             });
-
             selectedEmps = []; currentCart = []; renderAll();
 
             try {
                 let writePromises = backupEmps.map(empName => {
-                    return fdb.collection("Orders").add({ 
-                        date: selectedDate, empName: empName, food: foodNames + note, 
-                        price: perPersonAmount, items: backupCart, shared: sharedCount, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
+                    return fdb.collection("Orders").add({ date: selectedDate, empName: empName, food: foodNames + note, price: perPersonAmount, items: backupCart, shared: sharedCount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
                 });
                 await Promise.all(writePromises); 
                 await saveSettingsToCloud();      
@@ -354,14 +410,12 @@
         }
 
         async function cancelOrder(orderId, empName, price) {
-            let isSkip = price === 0;
-            if(confirm(isSkip ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${price} 退回給 ${empName} 嗎？`)) {
+            if(confirm(price === 0 ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${price} 退回給 ${empName} 嗎？`)) {
                 const orderIndex = appData.orders.findIndex(o => o.id === orderId);
                 if(orderIndex > -1) appData.orders.splice(orderIndex, 1);
                 let emp = appData.employees.find(e => e.name === empName);
                 if(emp) emp.balance += price;
                 renderAll(); 
-
                 try {
                     if(!orderId.startsWith('temp_')) await fdb.collection("Orders").doc(orderId).delete();
                     await saveSettingsToCloud();
@@ -370,12 +424,49 @@
             }
         }
 
+        async function submitTopup() {
+            let empName = document.getElementById('topup-emp').value;
+            let amount = parseInt(document.getElementById('topup-amount').value);
+            if(!empName) return alert("請選擇收款對象");
+            if(isNaN(amount) || amount === 0) return alert("請輸入正確金額");
+
+            document.getElementById('loading-overlay').style.display = 'flex';
+            try {
+                let emp = appData.employees.find(e => e.name === empName);
+                if(emp) emp.balance += amount;
+                let now = new Date();
+                let timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+                await fdb.collection("Topups").add({ date: getLocalISODate(), time: timeStr, empName: empName, amount: amount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+                await saveSettingsToCloud();
+                await syncTopupsFromCloud(); 
+
+                document.getElementById('topup-amount').value = ''; 
+            } catch(e) { alert("收款紀錄失敗！"); }
+            document.getElementById('loading-overlay').style.display = 'none';
+            renderAll();
+        }
+
+        async function cancelTopup(id, empName, amount) {
+            if(confirm(`確定要撤銷「${empName} 收款 $${amount}」嗎？`)) {
+                document.getElementById('loading-overlay').style.display = 'flex';
+                try {
+                    let emp = appData.employees.find(e => e.name === empName);
+                    if(emp) emp.balance -= amount;
+                    await fdb.collection("Topups").doc(id).delete();
+                    await saveSettingsToCloud();
+                    await syncTopupsFromCloud();
+                } catch(e) {}
+                document.getElementById('loading-overlay').style.display = 'none';
+                renderAll();
+            }
+        }
+
         function renderPOSLeft() {
             const orderedEmpNames = appData.orders.map(o => o.empName);
             const empContainer = document.getElementById('pending-employees');
             empContainer.innerHTML = '';
             let allDone = true;
-            
             appData.employees.forEach(emp => {
                 if (!orderedEmpNames.includes(emp.name)) {
                     allDone = false;
@@ -384,17 +475,15 @@
                     empContainer.innerHTML += `<button onclick="toggleEmp('${emp.name}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm ${btnClass} truncate px-1 shadow-sm">${emp.name}</button>`;
                 }
             });
-            if (allDone) empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center"><svg class="w-4 h-4 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>所有同事皆已處理</p>';
+            if (allDone) empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>';
         }
 
         function renderPOS() {
             renderPOSLeft(); updateCartUI();
-
             const storeId = document.getElementById('store-selector').value;
             const currentStore = appData.stores.find(s => s.id === storeId);
             const menuContainer = document.getElementById('current-menu');
             menuContainer.innerHTML = '';
-            
             if(currentStore) {
                 currentStore.menu.forEach(item => {
                     menuContainer.innerHTML += `
@@ -409,20 +498,28 @@
             orderContainer.innerHTML = '';
             let totalAmount = 0; let itemCounts = {}; 
 
-            if(appData.orders.length === 0) {
-                orderContainer.innerHTML = '<div class="text-center py-5"><span class="text-xs text-stone-400">目前尚無明細</span></div>';
-            }
+            // 統計人數用
+            let validOrders = appData.orders.filter(o => o.food !== "未點餐");
+            let orderingEmps = new Set();
+            let sharedEmps = new Set();
+
+            if(appData.orders.length === 0) orderContainer.innerHTML = '<div class="text-center py-5"><span class="text-xs text-stone-400">目前尚無明細</span></div>';
 
             appData.orders.forEach(order => {
                 totalAmount += order.price;
-                if(order.food !== "未點餐" && order.items && order.shared) {
-                    order.items.forEach(item => {
-                        if(item.name === "未點餐") return;
-                        if(!itemCounts[item.name]) itemCounts[item.name] = 0;
-                        itemCounts[item.name] += (1 / order.shared); 
-                    });
-                }
+                if(order.food !== "未點餐") {
+                    orderingEmps.add(order.empName);
+                    if (order.shared > 1) sharedEmps.add(order.empName);
 
+                    if(order.items && order.shared) {
+                        order.items.forEach(item => {
+                            if(item.name === "未點餐") return;
+                            if(!itemCounts[item.name]) itemCounts[item.name] = 0;
+                            itemCounts[item.name] += (1 / order.shared); 
+                        });
+                    }
+                }
+                
                 let isSkip = order.food === "未點餐";
                 let foodClass = isSkip ? "text-stone-400" : "text-stone-500";
                 
@@ -438,47 +535,65 @@
                         </div>
                     </div>`;
             });
-
             document.getElementById('pos-today-total').innerText = `$${totalAmount}`;
+            
             const detailContainer = document.getElementById('pos-detail-list');
             detailContainer.innerHTML = '';
             let hasItems = false;
-            
             for (let itemName in itemCounts) {
                 let count = Math.round(itemCounts[itemName]); 
                 if (count > 0) {
                     hasItems = true;
-                    detailContainer.innerHTML += `
-                        <div class="bg-orange-50/80 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center">
-                            <span class="mr-2">${itemName}</span>
-                            <span class="bg-white text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-sm">x ${count}</span>
-                        </div>`;
+                    detailContainer.innerHTML += `<div class="bg-orange-50/80 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center"><span class="mr-2">${itemName}</span><span class="bg-white text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-sm">x ${count}</span></div>`;
                 }
             }
             if (!hasItems) detailContainer.innerHTML = '<span class="text-xs text-stone-400">目前尚無餐點需預訂</span>';
+
+            // 渲染溫馨核對區塊
+            const summaryContainer = document.getElementById('pos-summary-info');
+            summaryContainer.innerHTML = `<span>💡 溫馨核對：共 ${orderingEmps.size} 人點餐，其中 ${sharedEmps.size} 人共食。</span>`;
         }
 
         function renderLedger() {
             let totalCash = appData.employees.reduce((sum, emp) => sum + emp.balance, 0);
-            let cashElement = document.getElementById('admin-cash-on-hand');
-            cashElement.innerText = `$${totalCash}`;
-            if (totalCash < 0) {
-                cashElement.classList.replace('text-orange-500', 'text-red-500');
-            } else {
-                cashElement.classList.replace('text-red-500', 'text-orange-500');
-            }
+            document.getElementById('admin-cash-on-hand').innerText = `$${totalCash}`;
+            
+            const topupSelect = document.getElementById('topup-emp');
+            topupSelect.innerHTML = '<option value="">選擇員工...</option>';
+            appData.employees.forEach(emp => { topupSelect.innerHTML += `<option value="${emp.name}">${emp.name}</option>`; });
 
             const tbody = document.getElementById('ledger-table');
             tbody.innerHTML = '';
             appData.employees.forEach(emp => {
                 const balanceColor = emp.balance < 0 ? 'text-red-500' : (emp.balance > 0 ? 'text-green-600' : 'text-stone-400');
-                const balanceText = emp.balance < 0 ? `欠款 $${Math.abs(emp.balance)}` : `$${emp.balance}`;
+                const balanceText = emp.balance < 0 ? `需補款 $${Math.abs(emp.balance)}` : `$${emp.balance}`;
                 tbody.innerHTML += `
-                    <tr class="hover:bg-orange-50/50 transition">
+                    <tr class="hover:bg-orange-50/50 transition border-b border-orange-100/50 last:border-0">
                         <td class="p-4 font-bold text-[#4A3E3D]">${emp.name}</td>
                         <td class="p-4 text-right font-black ${balanceColor}">${balanceText}</td>
                     </tr>`;
             });
+
+            const historyContainer = document.getElementById('topup-history');
+            historyContainer.innerHTML = '';
+            if(appData.topups.length === 0) {
+                historyContainer.innerHTML = '<p class="text-xs text-stone-400 text-center py-4">尚無收款紀錄</p>';
+            } else {
+                let groupedTopups = {};
+                appData.topups.forEach(t => {
+                    let monthStr = t.date.substring(0, 7).replace('-', '年') + '月';
+                    if(!groupedTopups[monthStr]) groupedTopups[monthStr] = [];
+                    groupedTopups[monthStr].push(t);
+                });
+                for(let month in groupedTopups) {
+                    let monthHtml = `<div class="mb-4 last:mb-0"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/50 pb-1 ml-1">${month}</h4><div class="space-y-2">`;
+                    groupedTopups[month].forEach(t => {
+                        monthHtml += `<div class="flex justify-between items-center bg-orange-50/40 p-2.5 rounded-xl border border-orange-100/50"><div><span class="font-bold text-sm text-[#4A3E3D] mr-2">${t.empName}</span><span class="text-[10px] text-stone-400">${t.date.substring(5)} ${t.time}</span></div><div class="flex items-center space-x-3"><span class="text-sm font-black text-green-600">+$${t.amount}</span><button onclick="cancelTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-400 hover:text-red-500 text-xs transition">撤銷</button></div></div>`;
+                    });
+                    monthHtml += `</div></div>`;
+                    historyContainer.innerHTML += monthHtml;
+                }
+            }
         }
 
         function shareToLine() {
@@ -494,17 +609,128 @@
                     todayOrderInfo = (foodStr === "未點餐") ? `\n  └ 今日跳過` : `\n  └ 今日: ${foodStr} (-$${totalSpent})`;
                 }
                 let infoStr = `• ${emp.name}｜`;
-                if (emp.balance < 0) negativeEmps.push(`${infoStr}欠款 $${Math.abs(emp.balance)}${todayOrderInfo}`);
+                if (emp.balance < 0) negativeEmps.push(`${infoStr}❗需補款 $${Math.abs(emp.balance)}${todayOrderInfo}`);
                 else positiveEmps.push(`${infoStr}餘額 $${emp.balance}${todayOrderInfo}`);
             });
             
             if (negativeEmps.length > 0) text += `🔴 需補款名單：\n${negativeEmps.join('\n')}\n\n`;
             if (positiveEmps.length > 0) text += `🟢 餘額充足名單：\n${positiveEmps.join('\n')}\n\n`;
-            text += `══════════════════\n💡 請欠款的同事記得找總務喔！`;
+            text += `══════════════════\n💡 請需補款的同事記得找總務喔！`;
 
             navigator.clipboard.writeText(text).then(() => { alert("✅ 已成功複製！請切換到 LINE 貼上。"); })
-            .catch(err => { alert("複製失敗，請手手動複製。\n" + text); });
+            .catch(err => { alert("複製失敗，請手動複製。\n" + text); });
         }
+
+        // ================= ★ 全新 Excel(XLS) 匯出系統 ★ =================
+        async function exportToExcel() {
+            let currentMonth = getLocalISODate().substring(0,7);
+            let targetMonth = prompt("請輸入要匯出的月份 (格式 YYYY-MM)：", currentMonth);
+            if(!targetMonth) return;
+
+            document.getElementById('loading-overlay').style.display = 'flex';
+            
+            try {
+                // 從雲端抓取整個月資料
+                let orderSnap = await fdb.collection("Orders")
+                    .where("date", ">=", targetMonth + "-01")
+                    .where("date", "<=", targetMonth + "-31")
+                    .get();
+                let topupSnap = await fdb.collection("Topups")
+                    .where("date", ">=", targetMonth + "-01")
+                    .where("date", "<=", targetMonth + "-31")
+                    .get();
+
+                let monthOrders = orderSnap.docs.map(doc => doc.data());
+                let monthTopups = topupSnap.docs.map(doc => doc.data());
+
+                // 篩選出「當天有人點餐」的活躍日期 (過濾假日)
+                let activeDays = [];
+                for(let i=1; i<=31; i++) {
+                    let dayStr = targetMonth + "-" + i.toString().padStart(2, '0');
+                    if(monthOrders.some(o => o.date === dayStr)) {
+                        activeDays.push({ day: i, dateStr: dayStr });
+                    }
+                }
+
+                // 建立能被 Excel 完美讀取樣式的 HTML 結構
+                let html = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="utf-8">
+                    <style>
+                        table { border-collapse: collapse; font-family: '微軟正黑體', sans-serif; }
+                        th, td { border: 1px solid #ccc; text-align: center; vertical-align: middle; height: 30px; }
+                        /* 設定 Excel 欄寬 (Excel 欄寬1大約等於8像素) */
+                        .w-12 { width: 96px; } 
+                        .w-6 { width: 48px; }  
+                        .text-red { color: #FF0000; }
+                        .bg-pink { background-color: #fce7f3; }
+                        .bg-yellow { background-color: #fef08a; }
+                    </style>
+                </head>
+                <body>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;" class="bg-pink">員工姓名</th>
+                                <th class="w-12 bg-pink">系統目前餘額</th>
+                                <th class="w-12 bg-pink">本月總儲值</th>
+                                <th class="w-12 bg-pink">本月餐費總計</th>
+                `;
+                
+                // 動態產生日期標題
+                activeDays.forEach(d => { html += `<th class="w-6 bg-yellow">${d.day}號</th>`; });
+                html += `</tr></thead><tbody>`;
+
+                appData.employees.forEach(emp => {
+                    let empOrders = monthOrders.filter(o => o.empName === emp.name);
+                    let empTopups = monthTopups.filter(t => t.empName === emp.name);
+
+                    let totalSpend = empOrders.reduce((sum, o) => sum + o.price, 0);
+                    let totalTopup = empTopups.reduce((sum, t) => sum + t.amount, 0);
+
+                    // 負數自動加上紅色字體的 Class
+                    let balClass = emp.balance < 0 ? 'text-red' : '';
+                    let spendVal = totalSpend > 0 ? -totalSpend : 0; // 餐費為負項支出
+                    let spendClass = spendVal < 0 ? 'text-red' : '';
+
+                    html += `<tr>
+                        <td><strong>${emp.name}</strong></td>
+                        <td class="${balClass}"><strong>${emp.balance}</strong></td>
+                        <td>${totalTopup}</td>
+                        <td class="${spendClass}">${spendVal !== 0 ? spendVal : ''}</td>
+                    `;
+
+                    // 填入每日扣款資料
+                    activeDays.forEach(d => {
+                        let dailyOrders = empOrders.filter(o => o.date === d.dateStr);
+                        let dailySpend = dailyOrders.reduce((sum, o) => sum + o.price, 0);
+                        let val = dailySpend > 0 ? -dailySpend : '';
+                        let cellClass = val !== '' && val < 0 ? 'text-red' : '';
+                        html += `<td class="${cellClass}">${val}</td>`;
+                    });
+                    
+                    html += `</tr>`;
+                });
+
+                html += `</tbody></table></body></html>`;
+
+                // 將 HTML 偽裝成 .xls 檔案讓 Excel 開啟
+                let blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+                let url = URL.createObjectURL(blob);
+                let link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `午餐結算總表_${targetMonth}.xls`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+            } catch(e) {
+                alert("報表產生失敗，請檢查網路連線");
+            }
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+        // ==========================================================
 
         async function updateSettingsAction(actionFn) {
             actionFn(); renderAll(); 
@@ -522,7 +748,6 @@
                         <div class="flex items-center space-x-3">
                             <span class="text-sm font-black ${balColor}">$${emp.balance}</span>
                             <div class="flex space-x-1.5">
-                                <button onclick="editEmpBalance(${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
                                 <button onclick="deleteEmployee(${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
                             </div>
                         </div>
@@ -561,60 +786,13 @@
             });
         }
 
-        function addEmployee() {
-            let name = prompt("請輸入新同事姓名：");
-            if(name) updateSettingsAction(() => appData.employees.push({name: name, balance: 0}));
-        }
-
-        function editEmpBalance(index) {
-            let emp = appData.employees[index];
-            let newBal = prompt(`請輸入 ${emp.name} 的正確餘額：`, emp.balance);
-            if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseInt(newBal));
-        }
-
-        // 新增：刪除員工功能
-        function deleteEmployee(index) {
-            let emp = appData.employees[index];
-            if(confirm(`確定要刪除名單中的「${emp.name}」嗎？\n(過去的記帳歷史將不受影響)`)) {
-                updateSettingsAction(() => appData.employees.splice(index, 1));
-            }
-        }
-
-        function addStore() {
-            let name = prompt("請輸入新店家名稱：");
-            if(name) updateSettingsAction(() => { appData.stores.push({id: 's'+Date.now(), name: name, menu: []}); initStoreSelector(); });
-        }
-
-        // 新增：刪除店家功能
-        function deleteStore(storeIndex) {
-            let store = appData.stores[storeIndex];
-            if(confirm(`確定要刪除「${store.name}」以及它的所有菜單嗎？`)) {
-                updateSettingsAction(() => { 
-                    appData.stores.splice(storeIndex, 1); 
-                    initStoreSelector(); 
-                });
-            }
-        }
-
-        function addMenuItem(storeIndex) {
-            let name = prompt("請輸入餐點名稱："); if(!name) return;
-            let price = prompt(`請輸入「${name}」的價格：`);
-            if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[storeIndex].menu.push({name: name, price: parseInt(price)}));
-        }
-
-        function editMenuPrice(storeIndex, menuIndex) {
-            let item = appData.stores[storeIndex].menu[menuIndex];
-            let newPrice = prompt(`請輸入「${item.name}」的新價格：`, item.price);
-            if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseInt(newPrice));
-        }
-
-        // 新增：刪除餐點功能
-        function deleteMenuItem(storeIndex, menuIndex) {
-            let item = appData.stores[storeIndex].menu[menuIndex];
-            if(confirm(`確定要將「${item.name}」從菜單中移除嗎？`)) {
-                updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1));
-            }
-        }
+        function addEmployee() { let name = prompt("請輸入新同事姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: name, balance: 0})); }
+        function deleteEmployee(index) { if(confirm(`確定要刪除「${appData.employees[index].name}」嗎？`)) updateSettingsAction(() => appData.employees.splice(index, 1)); }
+        function addStore() { let name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => { appData.stores.push({id: 's'+Date.now(), name: name, menu: []}); initStoreSelector(); }); }
+        function deleteStore(storeIndex) { if(confirm(`確定要刪除「${appData.stores[storeIndex].name}」嗎？`)) updateSettingsAction(() => { appData.stores.splice(storeIndex, 1); initStoreSelector(); }); }
+        function addMenuItem(storeIndex) { let name = prompt("請輸入餐點："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[storeIndex].menu.push({name: name, price: parseInt(price)})); }
+        function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「${item.name}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseInt(newPrice)); }
+        function deleteMenuItem(storeIndex, menuIndex) { if(confirm(`刪除「${appData.stores[storeIndex].menu[menuIndex].name}」？`)) updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1)); }
     </script>
 </body>
 </html>
