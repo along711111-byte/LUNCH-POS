@@ -8,9 +8,8 @@
     <style>
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
-            background-color: #FDF9F5; /* 圖片載入前的暖色底 */
-            /* 這裡載入你的專屬背景圖 */
-            background-image: url('背景1.png'); 
+            background-color: #FDF9F5; 
+            background-image: url('Gemini_Generated_Image_unma06unma06unma.png'); 
             background-size: cover; 
             background-position: center top;
             background-attachment: fixed;
@@ -19,19 +18,15 @@
         }
         .hidden-view { display: none !important; }
         
-        /* 日式和紙毛玻璃質感 (提高一點白底透明度，蓋住複雜背景確保文字清晰) */
         .glass-panel { background: rgba(255, 252, 248, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(210, 180, 160, 0.4); box-shadow: 0 8px 30px rgba(100, 70, 50, 0.08); }
         .glass-nav { background: rgba(255, 252, 248, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(210, 180, 160, 0.4); }
         
-        /* 萃取自圖中螃蟹/蝦子的陶土橘紅色 */
         .theme-gradient { background: linear-gradient(135deg, #D97055 0%, #C85A44 100%); }
         .theme-text { color: #C85A44; }
         
-        /* 按鈕與選中狀態 */
         .emp-selected { background: linear-gradient(135deg, #D97055 0%, #C85A44 100%) !important; color: white !important; border-color: transparent !important; box-shadow: 0 4px 12px rgba(200, 90, 68, 0.3); transform: translateY(-1px); font-weight: 700; }
         .btn-active:active { transform: scale(0.97); }
         
-        /* 導覽列狀態 */
         .nav-active { color: #C85A44; }
         .nav-inactive { color: #B0A09A; }
         
@@ -40,7 +35,6 @@
         
         #loading-overlay { position: fixed; inset: 0; background: rgba(253, 249, 245, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #C85A44; text-align: center; }
     </style>
-    <!-- 引入 Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
@@ -64,10 +58,8 @@
 
         <!-- ================= 分頁 1：點餐 POS 機 ================= -->
         <div id="view-pos" class="space-y-6">
-            
             <div class="relative">
-                <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20">
-                </select>
+                <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20"></select>
                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-[#C85A44]">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
@@ -95,7 +87,6 @@
                 </div>
             </div>
 
-            <!-- 懸浮購物車 -->
             <div class="theme-gradient p-5 rounded-3xl shadow-[0_10px_25px_rgba(200,90,68,0.25)] sticky bottom-4 z-10">
                 <div class="flex justify-between items-end mb-2">
                     <div id="split-info" class="text-xs text-orange-100 font-medium h-4"></div>
@@ -130,7 +121,6 @@
 
         <!-- ================= 分頁 2：帳務存摺 ================= -->
         <div id="view-ledger" class="hidden-view space-y-6">
-            
             <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-3xl flex justify-between items-center border border-orange-100 shadow-sm opacity-95">
                 <div class="flex flex-col">
                     <span class="text-[11px] text-orange-600 font-bold mb-1 tracking-wider flex items-center">
@@ -202,6 +192,7 @@
         </nav>
     </div>
 
+    <!-- Firebase 系統核心邏輯 -->
     <script>
         const firebaseConfig = {
           apiKey: "AIzaSyCN5T3Wy5M_Ei9JY1kqgc1YzmN4UMufQQw",
@@ -512,7 +503,7 @@
             text += `══════════════════\n💡 請欠款的同事記得找總務喔！`;
 
             navigator.clipboard.writeText(text).then(() => { alert("✅ 已成功複製！請切換到 LINE 貼上。"); })
-            .catch(err => { alert("複製失敗，請手動複製。\n" + text); });
+            .catch(err => { alert("複製失敗，請手手動複製。\n" + text); });
         }
 
         async function updateSettingsAction(actionFn) {
@@ -530,7 +521,10 @@
                         <span class="font-bold text-sm text-[#4A3E3D]">${emp.name}</span>
                         <div class="flex items-center space-x-3">
                             <span class="text-sm font-black ${balColor}">$${emp.balance}</span>
-                            <button onclick="editEmpBalance(${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
+                            <div class="flex space-x-1.5">
+                                <button onclick="editEmpBalance(${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
+                                <button onclick="deleteEmployee(${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
+                            </div>
                         </div>
                     </div>`;
             });
@@ -545,16 +539,20 @@
                                 <svg class="w-4 h-4 mr-1.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                                 ${store.name}
                             </span>
-                            <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-orange-50 px-2.5 py-1 rounded-md">+ 餐點</button>
+                            <div class="flex space-x-2">
+                                <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-orange-50 px-2.5 py-1 rounded-md">+ 餐點</button>
+                                <button onclick="deleteStore(${sIdx})" class="text-xs text-red-500 font-bold bg-red-50 px-2.5 py-1 rounded-md">刪店家</button>
+                            </div>
                         </div>
                         <div class="space-y-2.5">`;
                 store.menu.forEach((item, mIdx) => {
                     html += `
                         <div class="flex justify-between items-center pl-1">
                             <span class="text-sm text-stone-500 font-medium">${item.name}</span>
-                            <div class="flex items-center space-x-3">
-                                <span class="text-sm theme-text font-bold">$${item.price}</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm theme-text font-bold mr-1">$${item.price}</span>
                                 <button onclick="editMenuPrice(${sIdx}, ${mIdx})" class="text-[10px] bg-stone-100 text-stone-500 font-medium px-2 py-1 rounded transition">改價</button>
+                                <button onclick="deleteMenuItem(${sIdx}, ${mIdx})" class="text-[10px] bg-red-50 text-red-500 font-medium px-2 py-1 rounded transition">刪除</button>
                             </div>
                         </div>`;
                 });
@@ -574,9 +572,28 @@
             if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseInt(newBal));
         }
 
+        // 新增：刪除員工功能
+        function deleteEmployee(index) {
+            let emp = appData.employees[index];
+            if(confirm(`確定要刪除名單中的「${emp.name}」嗎？\n(過去的記帳歷史將不受影響)`)) {
+                updateSettingsAction(() => appData.employees.splice(index, 1));
+            }
+        }
+
         function addStore() {
             let name = prompt("請輸入新店家名稱：");
             if(name) updateSettingsAction(() => { appData.stores.push({id: 's'+Date.now(), name: name, menu: []}); initStoreSelector(); });
+        }
+
+        // 新增：刪除店家功能
+        function deleteStore(storeIndex) {
+            let store = appData.stores[storeIndex];
+            if(confirm(`確定要刪除「${store.name}」以及它的所有菜單嗎？`)) {
+                updateSettingsAction(() => { 
+                    appData.stores.splice(storeIndex, 1); 
+                    initStoreSelector(); 
+                });
+            }
         }
 
         function addMenuItem(storeIndex) {
@@ -589,6 +606,14 @@
             let item = appData.stores[storeIndex].menu[menuIndex];
             let newPrice = prompt(`請輸入「${item.name}」的新價格：`, item.price);
             if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseInt(newPrice));
+        }
+
+        // 新增：刪除餐點功能
+        function deleteMenuItem(storeIndex, menuIndex) {
+            let item = appData.stores[storeIndex].menu[menuIndex];
+            if(confirm(`確定要將「${item.name}」從菜單中移除嗎？`)) {
+                updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1));
+            }
         }
     </script>
 </body>
