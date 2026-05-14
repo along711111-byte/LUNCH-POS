@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>午餐結算 - 企業總表版</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <style>
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
@@ -46,7 +47,7 @@
 
     <div id="loading-overlay">
         <svg class="w-12 h-12 mb-4 animate-spin text-[#C85A44]" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <h2 class="text-lg font-bold tracking-widest text-[#4A3E3D]">系統連線中...</h2>
+        <h2 class="text-lg font-bold tracking-widest text-[#4A3E3D]" id="loading-text">系統連線中...</h2>
     </div>
 
     <header class="theme-gradient sticky top-0 z-20 shadow-lg rounded-b-2xl">
@@ -122,11 +123,8 @@
                         </span>
                         <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
                     </div>
-                    <!-- 點餐明細列表 -->
                     <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
-                    <!-- 新增：溫馨核對區塊 -->
                     <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold">
-                        <!-- JS自動產生 -->
                     </div>
                 </div>
             </div>
@@ -148,13 +146,12 @@
                 </div>
             </div>
 
-            <!-- 全新按鈕區域：分享 LINE / 匯出 Excel -->
+            <!-- 分享 LINE / 匯出 Excel -->
             <div class="flex space-x-3 mb-6">
                 <button onclick="shareToLine()" class="btn-active w-1/2 bg-white text-[#C85A44] border border-orange-200 py-3.5 rounded-2xl font-bold shadow-sm flex flex-col justify-center items-center hover:bg-orange-50 transition opacity-95">
                     <svg class="w-6 h-6 mb-1 text-[#06C755]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 10.3c0-4.3-4.2-7.8-9.4-7.8-5.2 0-9.4 3.5-9.4 7.8 0 3.8 2.6 7 6.3 7.6l1.3.4s-.4 1.4-.4 1.6c-.1.5.3.8.3.8l3.6-2.4 1.3-.9c1.9.1 6.4-2.7 6.4-7.1z"/></svg>
                     <span class="text-xs">分享本日 LINE</span>
                 </button>
-                <!-- 改用 exportToExcel() -->
                 <button onclick="exportToExcel()" class="btn-active w-1/2 bg-[#C85A44] text-white py-3.5 rounded-2xl font-bold shadow-md flex flex-col justify-center items-center hover:bg-[#a64835] transition">
                     <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     <span class="text-xs">下載本月 Excel</span>
@@ -187,7 +184,7 @@
             <details class="group bg-white/80 rounded-2xl border border-orange-100 shadow-sm overflow-hidden mt-6 transition-all duration-300">
                 <summary class="flex justify-between items-center font-bold cursor-pointer list-none p-4 text-[#4A3E3D] outline-none">
                     <span class="flex items-center text-sm">
-                        <svg class="w-4 h-4 mr-2 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        <svg class="w-4 h-4 mr-2 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                         📝 收款歷史紀錄查閱 <span class="text-[10px] text-stone-400 font-normal ml-2">(點擊展開)</span>
                     </span>
                     <span class="transition group-open:rotate-180 text-stone-400"><svg fill="none" height="20" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M6 9l6 6 6-6"></path></svg></span>
@@ -497,8 +494,6 @@
             const orderContainer = document.getElementById('completed-orders');
             orderContainer.innerHTML = '';
             let totalAmount = 0; let itemCounts = {}; 
-
-            // 統計人數用
             let validOrders = appData.orders.filter(o => o.food !== "未點餐");
             let orderingEmps = new Set();
             let sharedEmps = new Set();
@@ -549,7 +544,6 @@
             }
             if (!hasItems) detailContainer.innerHTML = '<span class="text-xs text-stone-400">目前尚無餐點需預訂</span>';
 
-            // 渲染溫馨核對區塊
             const summaryContainer = document.getElementById('pos-summary-info');
             summaryContainer.innerHTML = `<span>💡 溫馨核對：共 ${orderingEmps.size} 人點餐，其中 ${sharedEmps.size} 人共食。</span>`;
         }
@@ -621,16 +615,16 @@
             .catch(err => { alert("複製失敗，請手動複製。\n" + text); });
         }
 
-        // ================= ★ 全新 Excel(XLS) 匯出系統 ★ =================
         async function exportToExcel() {
             let currentMonth = getLocalISODate().substring(0,7);
             let targetMonth = prompt("請輸入要匯出的月份 (格式 YYYY-MM)：", currentMonth);
             if(!targetMonth) return;
 
-            document.getElementById('loading-overlay').style.display = 'flex';
+            const loading = document.getElementById('loading-overlay');
+            document.getElementById('loading-text').innerText = "產生報表中...";
+            loading.style.display = 'flex';
             
             try {
-                // 從雲端抓取整個月資料
                 let orderSnap = await fdb.collection("Orders")
                     .where("date", ">=", targetMonth + "-01")
                     .where("date", "<=", targetMonth + "-31")
@@ -643,7 +637,6 @@
                 let monthOrders = orderSnap.docs.map(doc => doc.data());
                 let monthTopups = topupSnap.docs.map(doc => doc.data());
 
-                // 篩選出「當天有人點餐」的活躍日期 (過濾假日)
                 let activeDays = [];
                 for(let i=1; i<=31; i++) {
                     let dayStr = targetMonth + "-" + i.toString().padStart(2, '0');
@@ -652,35 +645,27 @@
                     }
                 }
 
-                // 建立能被 Excel 完美讀取樣式的 HTML 結構
-                let html = `
-                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-                <head>
-                    <meta charset="utf-8">
-                    <style>
-                        table { border-collapse: collapse; font-family: '微軟正黑體', sans-serif; }
-                        th, td { border: 1px solid #ccc; text-align: center; vertical-align: middle; height: 30px; }
-                        /* 設定 Excel 欄寬 (Excel 欄寬1大約等於8像素) */
-                        .w-12 { width: 96px; } 
-                        .w-6 { width: 48px; }  
-                        .text-red { color: #FF0000; }
-                        .bg-pink { background-color: #fce7f3; }
-                        .bg-yellow { background-color: #fef08a; }
-                    </style>
-                </head>
-                <body>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width: 80px;" class="bg-pink">員工姓名</th>
-                                <th class="w-12 bg-pink">系統目前餘額</th>
-                                <th class="w-12 bg-pink">本月總儲值</th>
-                                <th class="w-12 bg-pink">本月餐費總計</th>
-                `;
-                
-                // 動態產生日期標題
-                activeDays.forEach(d => { html += `<th class="w-6 bg-yellow">${d.day}號</th>`; });
-                html += `</tr></thead><tbody>`;
+                const workbook = new ExcelJS.Workbook();
+                const sheet = workbook.addWorksheet('本月午餐結算');
+
+                // 完美適應中文字的欄寬設定
+                let columns = [
+                    { header: '員工姓名', key: 'name', width: 14 },
+                    { header: '系統目前餘額', key: 'balance', width: 16 },
+                    { header: '本月總儲值', key: 'topup', width: 15 },
+                    { header: '本月餐費總計', key: 'spend', width: 16 }
+                ];
+                activeDays.forEach(d => {
+                    columns.push({ header: d.day + '號', key: 'd' + d.day, width: 6 });
+                });
+                sheet.columns = columns;
+
+                sheet.getRow(1).eachCell(cell => {
+                    cell.font = { bold: true };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7F3' } }; 
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                });
 
                 appData.employees.forEach(emp => {
                     let empOrders = monthOrders.filter(o => o.empName === emp.name);
@@ -688,49 +673,50 @@
 
                     let totalSpend = empOrders.reduce((sum, o) => sum + o.price, 0);
                     let totalTopup = empTopups.reduce((sum, t) => sum + t.amount, 0);
+                    let spendVal = totalSpend > 0 ? -totalSpend : 0; 
+                    
+                    let rowData = {
+                        name: emp.name,
+                        balance: emp.balance,
+                        topup: totalTopup > 0 ? totalTopup : '',
+                        spend: spendVal !== 0 ? spendVal : ''
+                    };
 
-                    // 負數自動加上紅色字體的 Class
-                    let balClass = emp.balance < 0 ? 'text-red' : '';
-                    let spendVal = totalSpend > 0 ? -totalSpend : 0; // 餐費為負項支出
-                    let spendClass = spendVal < 0 ? 'text-red' : '';
-
-                    html += `<tr>
-                        <td><strong>${emp.name}</strong></td>
-                        <td class="${balClass}"><strong>${emp.balance}</strong></td>
-                        <td>${totalTopup}</td>
-                        <td class="${spendClass}">${spendVal !== 0 ? spendVal : ''}</td>
-                    `;
-
-                    // 填入每日扣款資料
                     activeDays.forEach(d => {
                         let dailyOrders = empOrders.filter(o => o.date === d.dateStr);
                         let dailySpend = dailyOrders.reduce((sum, o) => sum + o.price, 0);
-                        let val = dailySpend > 0 ? -dailySpend : '';
-                        let cellClass = val !== '' && val < 0 ? 'text-red' : '';
-                        html += `<td class="${cellClass}">${val}</td>`;
+                        rowData['d' + d.day] = dailySpend > 0 ? -dailySpend : '';
                     });
-                    
-                    html += `</tr>`;
+
+                    let row = sheet.addRow(rowData);
+
+                    row.eachCell((cell, colNumber) => {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                        
+                        if (typeof cell.value === 'number' && cell.value < 0) {
+                            cell.font = { color: { argb: 'FFFF0000' } };
+                        }
+                    });
                 });
 
-                html += `</tbody></table></body></html>`;
-
-                // 將 HTML 偽裝成 .xls 檔案讓 Excel 開啟
-                let blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-                let url = URL.createObjectURL(blob);
-                let link = document.createElement("a");
-                link.setAttribute("href", url);
-                link.setAttribute("download", `午餐結算總表_${targetMonth}.xls`);
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `午餐結算總表_${targetMonth}.xlsx`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
 
             } catch(e) {
                 alert("報表產生失敗，請檢查網路連線");
+                console.error(e);
             }
-            document.getElementById('loading-overlay').style.display = 'none';
+            loading.style.display = 'none';
+            document.getElementById('loading-text').innerText = "系統連線中...";
         }
-        // ==========================================================
 
         async function updateSettingsAction(actionFn) {
             actionFn(); renderAll(); 
