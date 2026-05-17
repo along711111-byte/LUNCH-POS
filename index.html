@@ -19,13 +19,7 @@
         }
         .hidden-view { display: none !important; }
         
-        /* ========= 視覺優化：高透視感調整 (V29 修正版) ========= */
-        
-        /* 整體大面板背景 Alpha 值大幅調降 (0.88 -> 0.65)，讓背景明顯透出 */
-        /* 增加 Blur 值 (16px -> 20px) 確保高透視下文字依然清晰 */
         .glass-panel { background: rgba(255, 252, 248, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(210, 180, 160, 0.4); box-shadow: 0 8px 30px rgba(100, 70, 50, 0.08); }
-        
-        /* 導覽列背景 Alpha 值大幅調降 (0.92 -> 0.70) */
         .glass-nav { background: rgba(255, 252, 248, 0.70); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(210, 180, 160, 0.4); }
         
         .theme-gradient { background: linear-gradient(135deg, #D97055 0%, #C85A44 100%); }
@@ -45,6 +39,21 @@
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         
         #loading-overlay { position: fixed; inset: 0; background: rgba(253, 249, 245, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #C85A44; text-align: center; }
+
+        #q-animation-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100000; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        
+        @keyframes bounce-in {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .anim-bubble { animation: bounce-in 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; animation-delay: 0.3s; opacity: 0; }
+        
+        @keyframes slide-up-char {
+            0% { transform: translateY(100px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .anim-char { animation: slide-up-char 0.5s ease-out forwards; }
     </style>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -54,6 +63,18 @@
     <div id="loading-overlay">
         <svg class="w-12 h-12 mb-4 animate-spin text-[#C85A44]" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         <h2 class="text-lg font-bold tracking-widest text-[#4A3E3D]" id="loading-text">系統連線中...</h2>
+    </div>
+
+    <div id="q-animation-overlay" onclick="closeQAnimation()">
+        <div class="anim-bubble relative bg-white p-5 rounded-3xl shadow-2xl mb-6 max-w-[85%] border-[3px] border-[#C85A44]" onclick="event.stopPropagation()">
+            <p class="text-[#4A3E3D] font-bold text-center leading-relaxed text-lg" id="q-speech-text"></p>
+            <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[12px] border-l-transparent border-t-[18px] border-t-[#C85A44] border-r-[12px] border-r-transparent"></div>
+            <div class="absolute -bottom-[11px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[9px] border-l-transparent border-t-[14px] border-t-white border-r-[9px] border-r-transparent z-10"></div>
+        </div>
+        <div class="anim-char w-40 h-40" onclick="event.stopPropagation()">
+            <img src="https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix&backgroundColor=fdf9f5" alt="小幫手" class="w-full h-full rounded-full shadow-[0_10px_25px_rgba(0,0,0,0.5)] border-4 border-white object-cover bg-white">
+        </div>
+        <p class="text-white/60 text-sm mt-8 tracking-widest anim-char" style="animation-delay: 0.5s;">( 點擊任意處關閉 )</p>
     </div>
 
     <header class="theme-gradient sticky top-0 z-20 shadow-lg rounded-b-2xl opacity-95">
@@ -87,7 +108,6 @@
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
                         選擇餐點
                     </h2>
-                    
                     <button id="skip-btn" onclick="toggleCartItem('未點餐', 0)" class="btn-active w-full py-3.5 mb-3 bg-white/40 border border-stone-200/40 rounded-xl text-center flex justify-center items-center text-stone-500 font-medium hover:bg-stone-100/60 transition shadow-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
                         本日跳過 (未點餐)
@@ -130,7 +150,6 @@
                         <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
                     </div>
                     <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
-                    
                     <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold">
                     </div>
                 </div>
@@ -346,7 +365,6 @@
                 }
             } else {
                 currentCart = currentCart.filter(i => i.name !== '未點餐');
-                
                 const index = currentCart.findIndex(item => item.name === foodName);
                 if (index > -1) {
                     currentCart.splice(index, 1);
@@ -404,7 +422,6 @@
             if (isSkipSelected) {
                 skipBtn.className = "btn-active w-full py-3.5 mb-3 bg-[#C85A44] border border-[#C85A44] rounded-xl text-center flex justify-center items-center text-white font-medium shadow-md transition";
             } else {
-                // V29 視覺修正：Alpha 值調降以透出背景 (原本 bg-stone-50/80)
                 skipBtn.className = "btn-active w-full py-3.5 mb-3 bg-white/40 border border-stone-200/40 rounded-xl text-center flex justify-center items-center text-stone-500 font-medium hover:bg-stone-100/60 transition shadow-sm";
             }
 
@@ -416,7 +433,6 @@
             if(currentStore) {
                 currentStore.menu.forEach(item => {
                     let isSelected = currentCart.some(c => c.name === item.name);
-                    // V29 視覺修正：Alpha 值大幅調降，讓按鈕看起來只是微微的薄霧一層 (原本 bg-white/80)
                     let btnClass = isSelected 
                         ? 'bg-gradient-to-br from-[#D97055] to-[#C85A44] border-transparent shadow-md text-white scale-[0.98]' 
                         : 'bg-white/40 border-orange-100 hover:border-orange-300 shadow-sm';
@@ -482,6 +498,16 @@
             if(!empName) return alert("請選擇收款對象");
             if(isNaN(amount) || amount === 0) return alert("請輸入正確金額");
 
+            // ===== 修改防呆檢查：同一人「同月份」不可重複收款 =====
+            let today = getLocalISODate();
+            let currentMonth = today.substring(0, 7);
+            let hasTopupThisMonth = appData.topups.some(t => t.empName === empName && t.date.startsWith(currentMonth));
+            
+            if(hasTopupThisMonth) {
+                return alert(`⚠️ 防呆攔截：\n\n【${empName}】這個月已經有繳款紀錄囉！\n\n如果是金額打錯，請在下方的「收款歷史紀錄」中直接按「修正」。`);
+            }
+            // ================================================
+
             document.getElementById('loading-overlay').style.display = 'flex';
             try {
                 let emp = appData.employees.find(e => e.name === empName);
@@ -489,7 +515,7 @@
                 let now = new Date();
                 let timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
 
-                await fdb.collection("Topups").add({ date: getLocalISODate(), time: timeStr, empName: empName, amount: amount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+                await fdb.collection("Topups").add({ date: today, time: timeStr, empName: empName, amount: amount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
                 await saveSettingsToCloud();
                 await syncTopupsFromCloud(); 
 
@@ -536,6 +562,25 @@
             }
         }
 
+        function showQAnimation() {
+            let validOrders = appData.orders.filter(o => o.food !== "未點餐");
+            let orderingEmps = new Set();
+            let sharedEmps = new Set();
+            validOrders.forEach(order => {
+                orderingEmps.add(order.empName);
+                if (order.shared > 1) sharedEmps.add(order.empName);
+            });
+            document.getElementById('q-speech-text').innerHTML = `
+                ✨ 辛苦啦！<br>
+                今天總共有 <span class="text-2xl text-orange-500">${orderingEmps.size}</span> 人點餐<br>
+                其中 <span class="text-xl text-orange-400">${sharedEmps.size}</span> 人是共食喔！<br>
+                <span class="text-sm text-stone-400 mt-2 block">記得打電話叫便當～📞</span>
+            `;
+            document.getElementById('q-animation-overlay').style.display = 'flex';
+        }
+
+        function closeQAnimation() { document.getElementById('q-animation-overlay').style.display = 'none'; }
+
         function renderPOSLeft() {
             const orderedEmpNames = appData.orders.map(o => o.empName);
             const empContainer = document.getElementById('pending-employees');
@@ -553,9 +598,7 @@
         }
 
         function renderPOS() {
-            renderPOSLeft(); 
-            updateCartUI();
-            updateMenuUI();
+            renderPOSLeft(); updateCartUI(); updateMenuUI();
 
             const orderContainer = document.getElementById('completed-orders');
             orderContainer.innerHTML = '';
@@ -584,7 +627,6 @@
                 let isSkip = order.food === "未點餐";
                 let foodClass = isSkip ? "text-stone-400" : "text-stone-500";
                 
-                // V29 視覺修正：Alpha 值大幅調降至薄霧狀 (原本 bg-white/85)
                 orderContainer.innerHTML += `
                     <div class="flex justify-between items-center bg-white/55 p-3.5 rounded-2xl border border-orange-50/50 shadow-sm backdrop-blur-xs">
                         <div class="flex-grow overflow-hidden pr-3">
@@ -606,14 +648,18 @@
                 let count = Math.round(itemCounts[itemName]); 
                 if (count > 0) {
                     hasItems = true;
-                    // V29 視覺修正：Alpha 值調降以透出背景 (原本 bg-orange-50/80)
-                    detailContainer.innerHTML += `<div class="bg-orange-50/60 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center shadow-xsbackdrop-blur-xs"><span class="mr-2">${itemName}</span><span class="bg-white/80 text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-xs">x ${count}</span></div>`;
+                    detailContainer.innerHTML += `<div class="bg-orange-50/60 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center shadow-xs backdrop-blur-xs"><span class="mr-2">${itemName}</span><span class="bg-white/80 text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-xs">x ${count}</span></div>`;
                 }
             }
             if (!hasItems) detailContainer.innerHTML = '<span class="text-xs text-stone-400">目前尚無餐點需預訂</span>';
 
             const summaryContainer = document.getElementById('pos-summary-info');
-            summaryContainer.innerHTML = `<span>💡 溫馨核對：共 ${orderingEmps.size} 人點餐，其中 ${sharedEmps.size} 人共食。</span>`;
+            summaryContainer.innerHTML = `
+                <div class="flex items-center justify-between w-full cursor-pointer bg-white/50 hover:bg-white/70 border border-orange-100/50 p-3 rounded-xl transition backdrop-blur-sm" onclick="showQAnimation()">
+                    <span class="text-xs text-[#C85A44] font-bold">💡 溫馨提醒：共 ${orderingEmps.size} 人點餐，${sharedEmps.size} 人共食。</span>
+                    <span class="bg-[#C85A44] text-white px-2.5 py-1 rounded-lg text-[10px] animate-pulse whitespace-nowrap shadow-sm">✨ 呼叫小幫手</span>
+                </div>
+            `;
         }
 
         function renderLedger() {
@@ -650,7 +696,6 @@
                 for(let month in groupedTopups) {
                     let monthHtml = `<div class="mb-4 last:mb-0 relative z-10"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/40 pb-1 ml-1">${month}</h4><div class="space-y-2">`;
                     groupedTopups[month].forEach(t => {
-                        // V29 視覺修正：Alpha 值大幅調降至薄霧狀 (原本 bg-orange-50/55)
                         monthHtml += `
                             <div class="flex justify-between items-center bg-orange-50/40 p-2.5 rounded-xl border border-orange-100/40 backdrop-blur-xs">
                                 <div>
@@ -659,8 +704,8 @@
                                 </div>
                                 <div class="flex items-center space-x-1.5 relative z-10">
                                     <span class="text-sm font-black text-green-600 mr-1.5">+$${t.amount}</span>
-                                    <button onclick="editTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-smbackdrop-blur-xs">修正</button>
-                                    <button onclick="cancelTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-smbackdrop-blur-xs">刪除</button>
+                                    <button onclick="editTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">修正</button>
+                                    <button onclick="cancelTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">刪除</button>
                                 </div>
                             </div>`;
                     });
@@ -705,17 +750,14 @@
             loading.style.display = 'flex';
             
             try {
-                let orderSnap = await fdb.collection("Orders")
-                    .where("date", ">=", targetMonth + "-01")
-                    .where("date", "<=", targetMonth + "-31")
-                    .get();
-                let topupSnap = await fdb.collection("Topups")
-                    .where("date", ">=", targetMonth + "-01")
-                    .where("date", "<=", targetMonth + "-31")
-                    .get();
+                let orderSnap = await fdb.collection("Orders").where("date", ">=", targetMonth + "-01").get();
+                let topupSnap = await fdb.collection("Topups").where("date", ">=", targetMonth + "-01").get();
 
-                let monthOrders = orderSnap.docs.map(doc => doc.data());
-                let monthTopups = topupSnap.docs.map(doc => doc.data());
+                let allFutureOrders = orderSnap.docs.map(doc => doc.data());
+                let allFutureTopups = topupSnap.docs.map(doc => doc.data());
+
+                let monthOrders = allFutureOrders.filter(o => o.date.startsWith(targetMonth));
+                let monthTopups = allFutureTopups.filter(t => t.date.startsWith(targetMonth));
 
                 let activeDays = [];
                 for(let i=1; i<=31; i++) {
@@ -730,13 +772,12 @@
 
                 let columns = [
                     { header: '員工姓名', key: 'name', width: 14 },
+                    { header: '上月結存', key: 'lastMonthBal', width: 12 }, 
                     { header: '系統目前餘額', key: 'balance', width: 16 },
                     { header: '本月總儲值', key: 'topup', width: 15 },
                     { header: '本月餐費總計', key: 'spend', width: 16 }
                 ];
-                activeDays.forEach(d => {
-                    columns.push({ header: d.day + '號', key: 'd' + d.day, width: 6 });
-                });
+                activeDays.forEach(d => { columns.push({ header: d.day + '號', key: 'd' + d.day, width: 6 }); });
                 sheet.columns = columns;
 
                 sheet.getRow(1).eachCell(cell => {
@@ -747,6 +788,12 @@
                 });
 
                 appData.employees.forEach(emp => {
+                    let empFutureOrders = allFutureOrders.filter(o => o.empName === emp.name);
+                    let empFutureTopups = allFutureTopups.filter(t => t.empName === emp.name);
+                    let futureSpendTotal = empFutureOrders.reduce((sum, o) => sum + o.price, 0);
+                    let futureTopupTotal = empFutureTopups.reduce((sum, t) => sum + t.amount, 0);
+                    let lastMonthBalance = emp.balance - futureTopupTotal + futureSpendTotal;
+
                     let empOrders = monthOrders.filter(o => o.empName === emp.name);
                     let empTopups = monthTopups.filter(t => t.empName === emp.name);
 
@@ -756,6 +803,7 @@
                     
                     let rowData = {
                         name: emp.name,
+                        lastMonthBal: lastMonthBalance, 
                         balance: emp.balance,
                         topup: totalTopup > 0 ? totalTopup : '',
                         spend: spendVal !== 0 ? spendVal : ''
@@ -826,7 +874,6 @@
             empContainer.innerHTML = '';
             appData.employees.forEach((emp, i) => {
                 const balColor = emp.balance < 0 ? 'text-red-500' : 'text-stone-500';
-                // V29 視覺修正：Alpha 值大幅調降至薄霧狀 (原本 bg-white/65 border-orange-50)
                 empContainer.innerHTML += `
                     <div class="flex justify-between items-center bg-white/55 p-3.5 rounded-2xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
                         <div class="flex items-center relative z-10">
@@ -849,7 +896,6 @@
             const storeContainer = document.getElementById('setting-stores');
             storeContainer.innerHTML = '';
             appData.stores.forEach((store, sIdx) => {
-                // V29 視覺修正：Alpha 值調降至薄霧狀 (原本 bg-white/65 border-orange-100)
                 let html = `
                     <div class="bg-white/55 p-4 rounded-3xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
                         <div class="flex justify-between items-center mb-3 border-b border-orange-100/30 pb-3 relative z-10">
@@ -858,7 +904,7 @@
                                 ${store.name}
                             </span>
                             <div class="flex space-x-2">
-                                <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 px-2.5 py-1 rounded-md shadow-xsbackdrop-blur-xs">+ 餐點</button>
+                                <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">+ 餐點</button>
                                 <button onclick="deleteStore(${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">刪店家</button>
                             </div>
                         </div>
