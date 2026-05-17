@@ -19,8 +19,9 @@
         }
         .hidden-view { display: none !important; }
         
-        .glass-panel { background: rgba(255, 252, 248, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(210, 180, 160, 0.4); box-shadow: 0 8px 30px rgba(100, 70, 50, 0.08); }
-        .glass-nav { background: rgba(255, 252, 248, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(210, 180, 160, 0.4); }
+        /* 整體面板透明度調降 0.15 (0.88 -> 0.73) 讓背景更明顯 */
+        .glass-panel { background: rgba(255, 252, 248, 0.73); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(210, 180, 160, 0.4); box-shadow: 0 8px 30px rgba(100, 70, 50, 0.08); }
+        .glass-nav { background: rgba(255, 252, 248, 0.77); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid rgba(210, 180, 160, 0.4); }
         
         .theme-gradient { background: linear-gradient(135deg, #D97055 0%, #C85A44 100%); }
         .theme-text { color: #C85A44; }
@@ -50,12 +51,12 @@
         <h2 class="text-lg font-bold tracking-widest text-[#4A3E3D]" id="loading-text">系統連線中...</h2>
     </div>
 
-    <header class="theme-gradient sticky top-0 z-20 shadow-lg rounded-b-2xl">
+    <header class="theme-gradient sticky top-0 z-20 shadow-lg rounded-b-2xl opacity-95">
         <div class="px-6 py-5 flex justify-between items-center">
             <h1 class="text-2xl font-bold text-white tracking-widest flex items-center">
                 LUNCH POS
             </h1>
-            <input type="date" id="order-date" onchange="changeDate()" class="text-sm font-medium text-[#C85A44] bg-white/95 px-3 py-1.5 rounded-full border-none outline-none shadow-sm focus:ring-2 focus:ring-orange-300 transition">
+            <input type="date" id="order-date" onchange="changeDate()" class="text-sm font-medium text-[#C85A44] bg-white/85 px-3 py-1.5 rounded-full border-none outline-none shadow-sm focus:ring-2 focus:ring-orange-300 transition">
         </div>
     </header>
 
@@ -76,12 +77,13 @@
                     <div id="pending-employees" class="grid grid-cols-3 gap-2.5"></div>
                 </div>
 
-                <div class="pt-4 border-t border-orange-100">
+                <div class="pt-4 border-t border-orange-100/50">
                     <h2 class="theme-text font-bold mb-3 text-sm tracking-wide flex items-center">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
                         選擇餐點
                     </h2>
-                    <button onclick="addToCart('未點餐', 0)" class="btn-active w-full py-3.5 mb-3 bg-stone-50 border border-stone-200/60 rounded-xl text-center flex justify-center items-center text-stone-500 font-medium hover:bg-stone-100 transition">
+                    
+                    <button id="skip-btn" onclick="toggleCartItem('未點餐', 0)" class="btn-active w-full py-3.5 mb-3 bg-stone-50/65 border border-stone-200/60 rounded-xl text-center flex justify-center items-center text-stone-500 font-medium hover:bg-stone-100/80 transition">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
                         本日跳過 (未點餐)
                     </button>
@@ -89,7 +91,7 @@
                 </div>
             </div>
 
-            <div class="theme-gradient p-5 rounded-3xl shadow-[0_10px_25px_rgba(200,90,68,0.25)] sticky bottom-4 z-10">
+            <div class="theme-gradient p-5 rounded-3xl shadow-[0_10px_25px_rgba(200,90,68,0.25)] sticky bottom-4 z-10 opacity-95">
                 <div id="split-toggle-container" class="hidden mb-3 pb-3 border-b border-white/20">
                     <label class="flex items-center space-x-2 text-white text-sm font-medium cursor-pointer">
                         <input type="checkbox" id="is-shared-order" onchange="updateCartUI()" class="rounded shadow-sm">
@@ -115,7 +117,7 @@
                 <div id="completed-orders" class="space-y-2 mb-6"></div>
                 
                 <div class="glass-panel p-5 rounded-3xl">
-                    <div class="flex justify-between items-center mb-4 border-b border-orange-100 pb-3">
+                    <div class="flex justify-between items-center mb-4 border-b border-orange-100/50 pb-3">
                         <span class="text-sm theme-text font-bold flex items-center">
                             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             店家叫餐清單
@@ -123,6 +125,7 @@
                         <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
                     </div>
                     <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
+                    
                     <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold">
                     </div>
                 </div>
@@ -131,7 +134,7 @@
 
         <div id="view-ledger" class="hidden-view space-y-5">
             
-            <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-3xl flex justify-between items-center border border-orange-100 shadow-sm opacity-95">
+            <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-3xl flex justify-between items-center border border-orange-100 shadow-sm opacity-90">
                 <div class="flex flex-col">
                     <span class="text-[11px] text-orange-600 font-bold mb-1 tracking-wider flex items-center">
                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -145,11 +148,11 @@
             </div>
 
             <div class="flex space-x-3 mb-6">
-                <button onclick="shareToLine()" class="btn-active w-1/2 bg-white text-[#C85A44] border border-orange-200 py-3.5 rounded-2xl font-bold shadow-sm flex flex-col justify-center items-center hover:bg-orange-50 transition opacity-95">
+                <button onclick="shareToLine()" class="btn-active w-1/2 bg-white/90 text-[#C85A44] border border-orange-200 py-3.5 rounded-2xl font-bold shadow-sm flex flex-col justify-center items-center hover:bg-orange-50 transition">
                     <svg class="w-6 h-6 mb-1 text-[#06C755]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 10.3c0-4.3-4.2-7.8-9.4-7.8-5.2 0-9.4 3.5-9.4 7.8 0 3.8 2.6 7 6.3 7.6l1.3.4s-.4 1.4-.4 1.6c-.1.5.3.8.3.8l3.6-2.4 1.3-.9c1.9.1 6.4-2.7 6.4-7.1z"/></svg>
                     <span class="text-xs">分享本日 LINE</span>
                 </button>
-                <button onclick="exportToExcel()" class="btn-active w-1/2 bg-[#C85A44] text-white py-3.5 rounded-2xl font-bold shadow-md flex flex-col justify-center items-center hover:bg-[#a64835] transition">
+                <button onclick="exportToExcel()" class="btn-active w-1/2 bg-[#C85A44]/95 text-white py-3.5 rounded-2xl font-bold shadow-md flex flex-col justify-center items-center hover:bg-[#a64835] transition">
                     <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     <span class="text-xs">下載本月 Excel</span>
                 </button>
@@ -161,22 +164,22 @@
                     新增收款作業
                 </h3>
                 <div class="flex space-x-2">
-                    <select id="topup-emp" class="flex-grow bg-white border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700"></select>
-                    <input type="number" id="topup-amount" placeholder="金額" class="w-24 bg-white border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700">
+                    <select id="topup-emp" class="flex-grow bg-white/80 border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700"></select>
+                    <input type="number" id="topup-amount" placeholder="金額" class="w-24 bg-white/80 border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700">
                     <button onclick="submitTopup()" class="btn-active bg-[#C85A44] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">收款</button>
                 </div>
             </div>
 
             <div class="glass-panel rounded-3xl overflow-hidden mt-6">
-                <div class="bg-orange-50/80 px-4 py-3 border-b border-orange-100">
+                <div class="bg-orange-50/65 px-4 py-3 border-b border-orange-100/50">
                     <h3 class="text-xs font-bold theme-text">全體員工餘額表</h3>
                 </div>
                 <table class="w-full text-left border-collapse">
-                    <tbody id="ledger-table" class="divide-y divide-orange-100/50"></tbody>
+                    <tbody id="ledger-table" class="divide-y divide-orange-100/40"></tbody>
                 </table>
             </div>
 
-            <details class="group bg-white/80 rounded-2xl border border-orange-100 shadow-sm overflow-hidden mt-6 transition-all duration-300">
+            <details class="group bg-white/65 rounded-2xl border border-orange-100/50 shadow-sm overflow-hidden mt-6 transition-all duration-300 backdrop-blur-sm">
                 <summary class="flex justify-between items-center font-bold cursor-pointer list-none p-4 text-[#4A3E3D] outline-none">
                     <span class="flex items-center text-sm">
                         <svg class="w-4 h-4 mr-2 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
@@ -215,7 +218,7 @@
     </main>
 
     <div class="fixed bottom-6 left-0 w-full px-5 z-50">
-        <nav class="glass-nav rounded-2xl flex justify-around p-2.5 shadow-[0_8px_30px_rgba(100,70,50,0.12)] border border-orange-50">
+        <nav class="glass-nav rounded-2xl flex justify-around p-2.5 shadow-[0_8px_30px_rgba(100,70,50,0.12)] border border-orange-50/50">
             <button onclick="switchTab('view-pos')" id="tab-pos" class="flex flex-col items-center p-2 w-1/3 nav-active transition rounded-xl">
                 <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                 <span class="text-[10px] font-bold tracking-wider">點餐</span>
@@ -328,7 +331,30 @@
             else selectedEmps.push(empName);
             updateCartUI(); renderPOSLeft();
         }
-        function addToCart(foodName, price) { currentCart.push({ name: foodName, price: price }); updateCartUI(); }
+
+        // ========= 新增：防呆餐點開關切換邏輯 =========
+        function toggleCartItem(foodName, price) {
+            if (foodName === '未點餐') {
+                // 如果點選的是「未點餐」，清空其他項目
+                if (currentCart.some(i => i.name === '未點餐')) {
+                    currentCart = []; 
+                } else {
+                    currentCart = [{ name: '未點餐', price: 0 }]; 
+                }
+            } else {
+                // 如果點選正常餐點，先拔除「未點餐」狀態
+                currentCart = currentCart.filter(i => i.name !== '未點餐');
+                
+                const index = currentCart.findIndex(item => item.name === foodName);
+                if (index > -1) {
+                    currentCart.splice(index, 1); // 第二次點擊：取消反白(移除)
+                } else {
+                    currentCart.push({ name: foodName, price: price }); // 第一次點擊：加入
+                }
+            }
+            updateCartUI(); 
+            updateMenuUI(); // 只重繪選單按鈕
+        }
 
         function updateCartUI() {
             const btn = document.getElementById('submit-btn');
@@ -368,6 +394,41 @@
                 btn.innerText = `請選擇餐點`;
             }
             document.getElementById('cart-total').innerText = `$${finalGrandTotal}`;
+        }
+
+        // ========= 新增：專門重繪菜單的函數 =========
+        function updateMenuUI() {
+            // 更新跳過按鈕
+            let skipBtn = document.getElementById('skip-btn');
+            let isSkipSelected = currentCart.some(i => i.name === '未點餐');
+            if (isSkipSelected) {
+                skipBtn.className = "btn-active w-full py-3.5 mb-3 bg-[#C85A44] border border-[#C85A44] rounded-xl text-center flex justify-center items-center text-white font-medium shadow-md transition";
+            } else {
+                skipBtn.className = "btn-active w-full py-3.5 mb-3 bg-stone-50/65 border border-stone-200/60 rounded-xl text-center flex justify-center items-center text-stone-500 font-medium hover:bg-stone-100/80 transition";
+            }
+
+            // 更新餐點按鈕
+            const storeId = document.getElementById('store-selector').value;
+            const currentStore = appData.stores.find(s => s.id === storeId);
+            const menuContainer = document.getElementById('current-menu');
+            menuContainer.innerHTML = '';
+            
+            if(currentStore) {
+                currentStore.menu.forEach(item => {
+                    let isSelected = currentCart.some(c => c.name === item.name);
+                    let btnClass = isSelected 
+                        ? 'bg-gradient-to-br from-[#D97055] to-[#C85A44] border-transparent shadow-md text-white scale-[0.98]' 
+                        : 'bg-white/65 border-orange-100 hover:border-orange-300 shadow-sm';
+                    let titleClass = isSelected ? 'text-white' : 'text-[#4A3E3D]';
+                    let priceClass = isSelected ? 'text-orange-100' : 'theme-text';
+
+                    menuContainer.innerHTML += `
+                        <button onclick="toggleCartItem('${item.name}', ${item.price})" class="btn-active p-3.5 rounded-xl transition-all duration-200 text-left flex flex-col justify-between border ${btnClass}">
+                            <span class="font-bold text-sm truncate ${titleClass}">${item.name}</span>
+                            <span class="font-bold mt-1 text-sm ${priceClass}">$${item.price}</span>
+                        </button>`;
+                });
+            }
         }
 
         async function submitCart() {
@@ -491,20 +552,9 @@
         }
 
         function renderPOS() {
-            renderPOSLeft(); updateCartUI();
-            const storeId = document.getElementById('store-selector').value;
-            const currentStore = appData.stores.find(s => s.id === storeId);
-            const menuContainer = document.getElementById('current-menu');
-            menuContainer.innerHTML = '';
-            if(currentStore) {
-                currentStore.menu.forEach(item => {
-                    menuContainer.innerHTML += `
-                        <button onclick="addToCart('${item.name}', ${item.price})" class="btn-active p-3.5 bg-white/80 border border-orange-100 rounded-xl hover:border-orange-300 transition text-left flex flex-col justify-between shadow-sm">
-                            <span class="font-bold text-[#4A3E3D] text-sm truncate">${item.name}</span>
-                            <span class="theme-text font-bold mt-1 text-sm">$${item.price}</span>
-                        </button>`;
-                });
-            }
+            renderPOSLeft(); 
+            updateCartUI();
+            updateMenuUI();
 
             const orderContainer = document.getElementById('completed-orders');
             orderContainer.innerHTML = '';
@@ -554,7 +604,7 @@
                 let count = Math.round(itemCounts[itemName]); 
                 if (count > 0) {
                     hasItems = true;
-                    detailContainer.innerHTML += `<div class="bg-orange-50/80 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center"><span class="mr-2">${itemName}</span><span class="bg-white text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-sm">x ${count}</span></div>`;
+                    detailContainer.innerHTML += `<div class="bg-orange-50/65 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center"><span class="mr-2">${itemName}</span><span class="bg-white text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-sm">x ${count}</span></div>`;
                 }
             }
             if (!hasItems) detailContainer.innerHTML = '<span class="text-xs text-stone-400">目前尚無餐點需預訂</span>';
@@ -641,7 +691,6 @@
             .catch(err => { alert("複製失敗，請手動複製。\n" + text); });
         }
 
-        // ================= ★ Excel 匯出：加入精準逆推演算法 ★ =================
         async function exportToExcel() {
             let currentMonth = getLocalISODate().substring(0,7);
             let targetMonth = prompt("請輸入要匯出的月份 (格式 YYYY-MM)：", currentMonth);
@@ -652,16 +701,17 @@
             loading.style.display = 'flex';
             
             try {
-                // 1. 抓取目標月 1 號開始到「未來」的『所有』紀錄
-                let orderSnap = await fdb.collection("Orders").where("date", ">=", targetMonth + "-01").get();
-                let topupSnap = await fdb.collection("Topups").where("date", ">=", targetMonth + "-01").get();
+                let orderSnap = await fdb.collection("Orders")
+                    .where("date", ">=", targetMonth + "-01")
+                    .where("date", "<=", targetMonth + "-31")
+                    .get();
+                let topupSnap = await fdb.collection("Topups")
+                    .where("date", ">=", targetMonth + "-01")
+                    .where("date", "<=", targetMonth + "-31")
+                    .get();
 
-                let allFutureOrders = orderSnap.docs.map(doc => doc.data());
-                let allFutureTopups = topupSnap.docs.map(doc => doc.data());
-
-                // 2. 過濾出只屬於目標月份的紀錄，用於顯示在 Excel 的網格中
-                let monthOrders = allFutureOrders.filter(o => o.date.startsWith(targetMonth));
-                let monthTopups = allFutureTopups.filter(t => t.date.startsWith(targetMonth));
+                let monthOrders = orderSnap.docs.map(doc => doc.data());
+                let monthTopups = topupSnap.docs.map(doc => doc.data());
 
                 let activeDays = [];
                 for(let i=1; i<=31; i++) {
@@ -676,7 +726,6 @@
 
                 let columns = [
                     { header: '員工姓名', key: 'name', width: 14 },
-                    { header: '上月結存', key: 'lastMonthBal', width: 12 }, // <--- 新增欄位
                     { header: '系統目前餘額', key: 'balance', width: 16 },
                     { header: '本月總儲值', key: 'topup', width: 15 },
                     { header: '本月餐費總計', key: 'spend', width: 16 }
@@ -694,19 +743,6 @@
                 });
 
                 appData.employees.forEach(emp => {
-                    
-                    // --- 核心：時光機逆推法算「上月結存」 ---
-                    // 找出這個員工從「目標月 1 號」起到現在的每一筆儲值與花費
-                    let empFutureOrders = allFutureOrders.filter(o => o.empName === emp.name);
-                    let empFutureTopups = allFutureTopups.filter(t => t.empName === emp.name);
-                    
-                    let futureSpendTotal = empFutureOrders.reduce((sum, o) => sum + o.price, 0);
-                    let futureTopupTotal = empFutureTopups.reduce((sum, t) => sum + t.amount, 0);
-                    
-                    // 上月結存 = 目前餘額 - 之後加進來的錢(Topup) + 之後花掉的錢(Spend)
-                    let lastMonthBalance = emp.balance - futureTopupTotal + futureSpendTotal;
-                    // ----------------------------------------
-
                     let empOrders = monthOrders.filter(o => o.empName === emp.name);
                     let empTopups = monthTopups.filter(t => t.empName === emp.name);
 
@@ -716,7 +752,6 @@
                     
                     let rowData = {
                         name: emp.name,
-                        lastMonthBal: lastMonthBalance, // 寫入計算結果
                         balance: emp.balance,
                         topup: totalTopup > 0 ? totalTopup : '',
                         spend: spendVal !== 0 ? spendVal : ''
@@ -756,7 +791,6 @@
             loading.style.display = 'none';
             document.getElementById('loading-text').innerText = "系統連線中...";
         }
-        // ==========================================================
 
         function moveEmpUp(index) {
             if (index > 0) {
@@ -789,7 +823,7 @@
             appData.employees.forEach((emp, i) => {
                 const balColor = emp.balance < 0 ? 'text-red-500' : 'text-stone-500';
                 empContainer.innerHTML += `
-                    <div class="flex justify-between items-center bg-white/80 p-3.5 rounded-2xl border border-orange-50 shadow-sm">
+                    <div class="flex justify-between items-center bg-white/65 p-3.5 rounded-2xl border border-orange-50 shadow-sm">
                         <div class="flex items-center">
                             <div class="flex flex-col mr-3 space-y-1">
                                 <button onclick="moveEmpUp(${i})" class="text-[10px] bg-stone-100 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] ${i === 0 ? 'opacity-0 pointer-events-none' : ''} transition">▲</button>
@@ -811,7 +845,7 @@
             storeContainer.innerHTML = '';
             appData.stores.forEach((store, sIdx) => {
                 let html = `
-                    <div class="bg-white/80 p-4 rounded-3xl border border-orange-100 shadow-sm">
+                    <div class="bg-white/65 p-4 rounded-3xl border border-orange-100 shadow-sm">
                         <div class="flex justify-between items-center mb-3 border-b border-orange-50 pb-3">
                             <span class="font-bold text-sm text-[#4A3E3D] flex items-center">
                                 <svg class="w-4 h-4 mr-1.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
