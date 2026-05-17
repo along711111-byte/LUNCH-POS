@@ -61,7 +61,6 @@
 
     <main class="w-full flex-grow relative px-4 mt-6">
 
-        <!-- ================= 分頁 1：點餐 POS 機 ================= -->
         <div id="view-pos" class="space-y-6">
             <div class="relative">
                 <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20"></select>
@@ -124,14 +123,13 @@
                         <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
                     </div>
                     <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
-                    <!-- 溫馨核對區塊 -->
+                    
                     <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold">
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- ================= 分頁 2：帳務存摺 ================= -->
         <div id="view-ledger" class="hidden-view space-y-5">
             
             <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-3xl flex justify-between items-center border border-orange-100 shadow-sm opacity-95">
@@ -147,7 +145,6 @@
                 </div>
             </div>
 
-            <!-- 分享 LINE / 匯出 Excel -->
             <div class="flex space-x-3 mb-6">
                 <button onclick="shareToLine()" class="btn-active w-1/2 bg-white text-[#C85A44] border border-orange-200 py-3.5 rounded-2xl font-bold shadow-sm flex flex-col justify-center items-center hover:bg-orange-50 transition opacity-95">
                     <svg class="w-6 h-6 mb-1 text-[#06C755]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 10.3c0-4.3-4.2-7.8-9.4-7.8-5.2 0-9.4 3.5-9.4 7.8 0 3.8 2.6 7 6.3 7.6l1.3.4s-.4 1.4-.4 1.6c-.1.5.3.8.3.8l3.6-2.4 1.3-.9c1.9.1 6.4-2.7 6.4-7.1z"/></svg>
@@ -159,7 +156,6 @@
                 </button>
             </div>
 
-            <!-- 快速收款 -->
             <div class="glass-panel p-5 rounded-3xl">
                 <h3 class="theme-text font-bold text-sm mb-3 flex items-center">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -172,7 +168,6 @@
                 </div>
             </div>
 
-            <!-- 全體員工餘額表 -->
             <div class="glass-panel rounded-3xl overflow-hidden mt-6">
                 <div class="bg-orange-50/80 px-4 py-3 border-b border-orange-100">
                     <h3 class="text-xs font-bold theme-text">全體員工餘額表</h3>
@@ -194,13 +189,12 @@
             </details>
         </div>
 
-        <!-- ================= 分頁 3：系統設定 ================= -->
         <div id="view-settings" class="hidden-view space-y-6">
             <div class="glass-panel p-5 rounded-3xl">
                 <div class="flex justify-between items-center mb-5">
                     <h2 class="font-bold theme-text text-sm flex items-center">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                        員工名單管理
+                        員工名單管理 <span class="text-xs text-stone-400 font-normal ml-2">(可調整排序)</span>
                     </h2>
                     <button onclick="addEmployee()" class="text-xs text-[#C85A44] bg-orange-100 hover:bg-orange-200 px-3 py-1.5 rounded-full transition">+ 新增</button>
                 </div>
@@ -238,7 +232,6 @@
         </nav>
     </div>
 
-    <!-- Firebase 系統核心邏輯 -->
     <script>
         const firebaseConfig = {
           apiKey: "AIzaSyCN5T3Wy5M_Ei9JY1kqgc1YzmN4UMufQQw",
@@ -649,7 +642,6 @@
                 const workbook = new ExcelJS.Workbook();
                 const sheet = workbook.addWorksheet('本月午餐結算');
 
-                // 完美適應中文字的欄寬設定
                 let columns = [
                     { header: '員工姓名', key: 'name', width: 14 },
                     { header: '系統目前餘額', key: 'balance', width: 16 },
@@ -694,7 +686,6 @@
                     row.eachCell((cell, colNumber) => {
                         cell.alignment = { vertical: 'middle', horizontal: 'center' };
                         cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-                        
                         if (typeof cell.value === 'number' && cell.value < 0) {
                             cell.font = { color: { argb: 'FFFF0000' } };
                         }
@@ -724,18 +715,47 @@
             try { await saveSettingsToCloud(); } catch(e) {}
         }
 
+        // ================= ★ 排序功能邏輯 ★ =================
+        function moveEmpUp(index) {
+            if (index > 0) {
+                updateSettingsAction(() => {
+                    let temp = appData.employees[index];
+                    appData.employees[index] = appData.employees[index - 1];
+                    appData.employees[index - 1] = temp;
+                });
+            }
+        }
+
+        function moveEmpDown(index) {
+            if (index < appData.employees.length - 1) {
+                updateSettingsAction(() => {
+                    let temp = appData.employees[index];
+                    appData.employees[index] = appData.employees[index + 1];
+                    appData.employees[index + 1] = temp;
+                });
+            }
+        }
+        // ======================================================
+
         function renderSettings() {
             const empContainer = document.getElementById('setting-employees');
             empContainer.innerHTML = '';
             appData.employees.forEach((emp, i) => {
                 const balColor = emp.balance < 0 ? 'text-red-500' : 'text-stone-500';
+                
+                // 加入「上移 / 下移」按鈕區塊
                 empContainer.innerHTML += `
                     <div class="flex justify-between items-center bg-white/80 p-3.5 rounded-2xl border border-orange-50 shadow-sm">
-                        <span class="font-bold text-sm text-[#4A3E3D]">${emp.name}</span>
+                        <div class="flex items-center">
+                            <div class="flex flex-col mr-3 space-y-1">
+                                <button onclick="moveEmpUp(${i})" class="text-[10px] bg-stone-100 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] ${i === 0 ? 'opacity-0 pointer-events-none' : ''} transition">▲</button>
+                                <button onclick="moveEmpDown(${i})" class="text-[10px] bg-stone-100 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] ${i === appData.employees.length - 1 ? 'opacity-0 pointer-events-none' : ''} transition">▼</button>
+                            </div>
+                            <span class="font-bold text-sm text-[#4A3E3D]">${emp.name}</span>
+                        </div>
                         <div class="flex items-center space-x-3">
                             <span class="text-sm font-black ${balColor}">$${emp.balance}</span>
                             <div class="flex space-x-1.5">
-                                <!-- 新增：更正按鈕 -->
                                 <button onclick="editEmpBalance(${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
                                 <button onclick="deleteEmployee(${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
                             </div>
@@ -776,14 +796,7 @@
         }
 
         function addEmployee() { let name = prompt("請輸入新同事姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: name, balance: 0})); }
-        
-        // 新增：更正餘額功能
-        function editEmpBalance(index) {
-            let emp = appData.employees[index];
-            let newBal = prompt(`請輸入 ${emp.name} 的正確餘額：\n(若要記錄繳款，請至存摺頁面使用「新增收款作業」)`, emp.balance);
-            if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseInt(newBal));
-        }
-
+        function editEmpBalance(index) { let emp = appData.employees[index]; let newBal = prompt(`請輸入 ${emp.name} 的正確餘額：\n(若要記錄繳款，請至存摺頁面使用「新增收款作業」)`, emp.balance); if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseInt(newBal)); }
         function deleteEmployee(index) { if(confirm(`確定要刪除「${appData.employees[index].name}」嗎？`)) updateSettingsAction(() => appData.employees.splice(index, 1)); }
         function addStore() { let name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => { appData.stores.push({id: 's'+Date.now(), name: name, menu: []}); initStoreSelector(); }); }
         function deleteStore(storeIndex) { if(confirm(`確定要刪除「${appData.stores[storeIndex].name}」嗎？`)) updateSettingsAction(() => { appData.stores.splice(storeIndex, 1); initStoreSelector(); }); }
