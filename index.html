@@ -123,7 +123,6 @@
                         <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
                     </div>
                     <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
-                    
                     <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold">
                     </div>
                 </div>
@@ -438,8 +437,30 @@
             renderAll();
         }
 
+        async function editTopup(id, empName, oldAmount) {
+            let newAmountStr = prompt(`修正「${empName}」的這筆收款紀錄：\n請輸入正確的金額：`, oldAmount);
+            if (newAmountStr === null) return; 
+            
+            let newAmount = parseInt(newAmountStr);
+            if (isNaN(newAmount) || newAmount === 0) return alert("請輸入正確的數字金額！");
+            if (newAmount === oldAmount) return; 
+
+            document.getElementById('loading-overlay').style.display = 'flex';
+            try {
+                let diff = newAmount - oldAmount;
+                let emp = appData.employees.find(e => e.name === empName);
+                if(emp) emp.balance += diff;
+
+                await fdb.collection("Topups").doc(id).update({ amount: newAmount });
+                await saveSettingsToCloud();
+                await syncTopupsFromCloud();
+            } catch(e) { alert("修正紀錄失敗，請檢查網路連線！"); }
+            document.getElementById('loading-overlay').style.display = 'none';
+            renderAll();
+        }
+
         async function cancelTopup(id, empName, amount) {
-            if(confirm(`確定要撤銷「${empName} 收款 $${amount}」嗎？`)) {
+            if(confirm(`確定要刪除「${empName} 收款 $${amount}」的紀錄嗎？\n(會將款項從餘額中扣回)`)) {
                 document.getElementById('loading-overlay').style.display = 'flex';
                 try {
                     let emp = appData.employees.find(e => e.name === empName);
@@ -576,7 +597,18 @@
                 for(let month in groupedTopups) {
                     let monthHtml = `<div class="mb-4 last:mb-0"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/50 pb-1 ml-1">${month}</h4><div class="space-y-2">`;
                     groupedTopups[month].forEach(t => {
-                        monthHtml += `<div class="flex justify-between items-center bg-orange-50/40 p-2.5 rounded-xl border border-orange-100/50"><div><span class="font-bold text-sm text-[#4A3E3D] mr-2">${t.empName}</span><span class="text-[10px] text-stone-400">${t.date.substring(5)} ${t.time}</span></div><div class="flex items-center space-x-3"><span class="text-sm font-black text-green-600">+$${t.amount}</span><button onclick="cancelTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-400 hover:text-red-500 text-xs transition">撤銷</button></div></div>`;
+                        monthHtml += `
+                            <div class="flex justify-between items-center bg-orange-50/40 p-2.5 rounded-xl border border-orange-100/50">
+                                <div>
+                                    <span class="font-bold text-sm text-[#4A3E3D] mr-2">${t.empName}</span>
+                                    <span class="text-[10px] text-stone-400">${t.date.substring(5)} ${t.time}</span>
+                                </div>
+                                <div class="flex items-center space-x-1.5">
+                                    <span class="text-sm font-black text-green-600 mr-1.5">+$${t.amount}</span>
+                                    <button onclick="editTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white rounded shadow-sm">修正</button>
+                                    <button onclick="cancelTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white rounded shadow-sm">刪除</button>
+                                </div>
+                            </div>`;
                     });
                     monthHtml += `</div></div>`;
                     historyContainer.innerHTML += monthHtml;
@@ -609,6 +641,7 @@
             .catch(err => { alert("複製失敗，請手動複製。\n" + text); });
         }
 
+        // ================= ★ Excel 匯出：加入精準逆推演算法 ★ =================
         async function exportToExcel() {
             let currentMonth = getLocalISODate().substring(0,7);
             let targetMonth = prompt("請輸入要匯出的月份 (格式 YYYY-MM)：", currentMonth);
@@ -619,17 +652,16 @@
             loading.style.display = 'flex';
             
             try {
-                let orderSnap = await fdb.collection("Orders")
-                    .where("date", ">=", targetMonth + "-01")
-                    .where("date", "<=", targetMonth + "-31")
-                    .get();
-                let topupSnap = await fdb.collection("Topups")
-                    .where("date", ">=", targetMonth + "-01")
-                    .where("date", "<=", targetMonth + "-31")
-                    .get();
+                // 1. 抓取目標月 1 號開始到「未來」的『所有』紀錄
+                let orderSnap = await fdb.collection("Orders").where("date", ">=", targetMonth + "-01").get();
+                let topupSnap = await fdb.collection("Topups").where("date", ">=", targetMonth + "-01").get();
 
-                let monthOrders = orderSnap.docs.map(doc => doc.data());
-                let monthTopups = topupSnap.docs.map(doc => doc.data());
+                let allFutureOrders = orderSnap.docs.map(doc => doc.data());
+                let allFutureTopups = topupSnap.docs.map(doc => doc.data());
+
+                // 2. 過濾出只屬於目標月份的紀錄，用於顯示在 Excel 的網格中
+                let monthOrders = allFutureOrders.filter(o => o.date.startsWith(targetMonth));
+                let monthTopups = allFutureTopups.filter(t => t.date.startsWith(targetMonth));
 
                 let activeDays = [];
                 for(let i=1; i<=31; i++) {
@@ -644,6 +676,7 @@
 
                 let columns = [
                     { header: '員工姓名', key: 'name', width: 14 },
+                    { header: '上月結存', key: 'lastMonthBal', width: 12 }, // <--- 新增欄位
                     { header: '系統目前餘額', key: 'balance', width: 16 },
                     { header: '本月總儲值', key: 'topup', width: 15 },
                     { header: '本月餐費總計', key: 'spend', width: 16 }
@@ -661,6 +694,19 @@
                 });
 
                 appData.employees.forEach(emp => {
+                    
+                    // --- 核心：時光機逆推法算「上月結存」 ---
+                    // 找出這個員工從「目標月 1 號」起到現在的每一筆儲值與花費
+                    let empFutureOrders = allFutureOrders.filter(o => o.empName === emp.name);
+                    let empFutureTopups = allFutureTopups.filter(t => t.empName === emp.name);
+                    
+                    let futureSpendTotal = empFutureOrders.reduce((sum, o) => sum + o.price, 0);
+                    let futureTopupTotal = empFutureTopups.reduce((sum, t) => sum + t.amount, 0);
+                    
+                    // 上月結存 = 目前餘額 - 之後加進來的錢(Topup) + 之後花掉的錢(Spend)
+                    let lastMonthBalance = emp.balance - futureTopupTotal + futureSpendTotal;
+                    // ----------------------------------------
+
                     let empOrders = monthOrders.filter(o => o.empName === emp.name);
                     let empTopups = monthTopups.filter(t => t.empName === emp.name);
 
@@ -670,6 +716,7 @@
                     
                     let rowData = {
                         name: emp.name,
+                        lastMonthBal: lastMonthBalance, // 寫入計算結果
                         balance: emp.balance,
                         topup: totalTopup > 0 ? totalTopup : '',
                         spend: spendVal !== 0 ? spendVal : ''
@@ -709,13 +756,8 @@
             loading.style.display = 'none';
             document.getElementById('loading-text').innerText = "系統連線中...";
         }
+        // ==========================================================
 
-        async function updateSettingsAction(actionFn) {
-            actionFn(); renderAll(); 
-            try { await saveSettingsToCloud(); } catch(e) {}
-        }
-
-        // ================= ★ 排序功能邏輯 ★ =================
         function moveEmpUp(index) {
             if (index > 0) {
                 updateSettingsAction(() => {
@@ -735,15 +777,17 @@
                 });
             }
         }
-        // ======================================================
+
+        async function updateSettingsAction(actionFn) {
+            actionFn(); renderAll(); 
+            try { await saveSettingsToCloud(); } catch(e) {}
+        }
 
         function renderSettings() {
             const empContainer = document.getElementById('setting-employees');
             empContainer.innerHTML = '';
             appData.employees.forEach((emp, i) => {
                 const balColor = emp.balance < 0 ? 'text-red-500' : 'text-stone-500';
-                
-                // 加入「上移 / 下移」按鈕區塊
                 empContainer.innerHTML += `
                     <div class="flex justify-between items-center bg-white/80 p-3.5 rounded-2xl border border-orange-50 shadow-sm">
                         <div class="flex items-center">
