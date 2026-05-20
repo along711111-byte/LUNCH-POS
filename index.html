@@ -508,7 +508,7 @@
             let hasTopupThisMonth = appData.topups.some(t => t.empName === empName && t.date.startsWith(currentMonth));
             
             if(hasTopupThisMonth) {
-                return alert(`⚠️ 防呆攔截：\n\n【\${empName}】這個月已經有繳款紀錄囉！\n\n如果是金額打錯，請在下方的「收款歷史紀錄」中直接按「修正」。`);
+                return alert(`⚠️ 防呆攔截：\n\n【${empName}】這個月已經有繳款紀錄囉！\n\n如果是金額打錯，請在下方的「收款歷史紀錄」中直接按「修正」。`);
             }
 
             document.getElementById('loading-overlay').style.display = 'flex';
@@ -529,7 +529,7 @@
         }
 
         async function editTopup(id, empName, oldAmount) {
-            let newAmountStr = prompt(`修正「\${empName}」的這筆收款紀錄：\n請輸入正確的金額：`, oldAmount);
+            let newAmountStr = prompt(`修正「${empName}」的這筆收款紀錄：\n請輸入正確的金額：`, oldAmount);
             if (newAmountStr === null) return; 
             
             let newAmount = parseFloat(newAmountStr);
@@ -551,7 +551,7 @@
         }
 
         async function cancelTopup(id, empName, amount) {
-            if(confirm(`確定要刪除「\${empName} 收款 $\${amount}」的紀錄嗎？\n(會將款項從餘額中扣回)`)) {
+            if(confirm(`確定要刪除「${empName} 收款 $${amount}」的紀錄嗎？\n(會將款項從餘額中扣回)`)) {
                 document.getElementById('loading-overlay').style.display = 'flex';
                 try {
                     let emp = appData.employees.find(e => e.name === empName);
@@ -575,8 +575,8 @@
             });
             document.getElementById('q-speech-text').innerHTML = `
                 ✨ 辛苦啦！<br>
-                今天總共有 <span class="text-2xl text-orange-500">\${orderingEmps.size}</span> 人點餐<br>
-                其中 <span class="text-xl text-orange-400">\${sharedEmps.size}</span> 人是共食喔！<br>
+                今天總共有 <span class="text-2xl text-orange-500">${orderingEmps.size}</span> 人點餐<br>
+                其中 <span class="text-xl text-orange-400">${sharedEmps.size}</span> 人是共食喔！<br>
                 <span class="text-sm text-stone-400 mt-2 block">記得打電話叫便當～📞</span>
             `;
             document.getElementById('q-animation-overlay').style.display = 'flex';
@@ -594,7 +594,7 @@
                     allDone = false;
                     const isSelected = selectedEmps.includes(emp.name);
                     const btnClass = isSelected ? 'emp-selected' : 'bg-white/60 text-[#4A3E3D] border-orange-100 hover:border-orange-300 backdrop-blur-xs';
-                    empContainer.innerHTML += `<button onclick="toggleEmp('\${emp.name}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm \${btnClass} truncate px-1 shadow-sm">\${emp.name}</button>`;
+                    empContainer.innerHTML += `<button onclick="toggleEmp('${emp.name}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm ${btnClass} truncate px-1 shadow-sm">${emp.name}</button>`;
                 }
             });
             if (allDone) empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>';
@@ -634,11 +634,11 @@
                     <div class="flex justify-between items-center bg-white/55 p-3.5 rounded-2xl border border-orange-50/50 shadow-sm backdrop-blur-xs">
                         <div class="flex-grow overflow-hidden pr-3">
                             <span class="font-bold text-[#4A3E3D] text-sm block mb-0.5">	h${order.empName}</span>
-                            <span class="text-xs \${foodClass} truncate block w-full">	h${order.food}</span>
+                            <span class="text-xs ${foodClass} truncate block w-full">	h${order.food}</span>
                         </div>
                         <div class="flex items-center space-x-3 flex-shrink-0 relative z-10">
                             	h${!isSkip ? `<span class="font-bold theme-text text-sm">$` + Number(order.price.toFixed(1)) + `</span>` : ''}
-                            <button onclick="cancelOrder('\${order.id}', '\${order.empName}', \${order.price})" class="text-orange-500 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg text-xs font-medium transition">退單</button>
+                            <button onclick="cancelOrder('${order.id}', '${order.empName}', ${order.price})" class="text-orange-500 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg text-xs font-medium transition">退單</button>
                         </div>
                     </div>`;
             });
@@ -652,7 +652,7 @@
                 let count = Number(itemCounts[itemName].toFixed(2)); 
                 if (count > 0) {
                     hasItems = true;
-                    detailContainer.innerHTML += `<div class="bg-orange-50/60 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center shadow-xs backdrop-blur-xs"><span class="mr-2">\${itemName}</span><span class="bg-white/80 text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-xs">x \${count}</span></div>`;
+                    detailContainer.innerHTML += `<div class="bg-orange-50/60 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center shadow-xs backdrop-blur-xs"><span class="mr-2">${itemName}</span><span class="bg-white/80 text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-xs">x ${count}</span></div>`;
                 }
             }
             if (!hasItems) detailContainer.innerHTML = '<span class="text-xs text-stone-400">目前尚無餐點需預訂</span>';
@@ -660,7 +660,7 @@
             const summaryContainer = document.getElementById('pos-summary-info');
             summaryContainer.innerHTML = `
                 <div class="flex items-center justify-between w-full cursor-pointer bg-white/50 hover:bg-white/70 border border-orange-100/50 p-3 rounded-xl transition backdrop-blur-sm" onclick="showQAnimation()">
-                    <span class="text-xs text-[#C85A44] font-bold">💡 溫馨提醒：共 \${orderingEmps.size} 人點餐，\${sharedEmps.size} 人共食。</span>
+                    <span class="text-xs text-[#C85A44] font-bold">💡 溫馨提醒：共 ${orderingEmps.size} 人點餐，${sharedEmps.size} 人共食。</span>
                     <span class="bg-[#C85A44] text-white px-2.5 py-1 rounded-lg text-[10px] animate-pulse whitespace-nowrap shadow-sm">✨ 呼叫小幫手</span>
                 </div>
             `;
@@ -672,7 +672,7 @@
             
             const topupSelect = document.getElementById('topup-emp');
             topupSelect.innerHTML = '<option value="">選擇員工...</option>';
-            appData.employees.forEach(emp => { topupSelect.innerHTML += `<option value="\${emp.name}">	h\${emp.name}</option>`; });
+            appData.employees.forEach(emp => { topupSelect.innerHTML += `<option value="${emp.name}">	h${emp.name}</option>`; });
 
             const tbody = document.getElementById('ledger-table');
             tbody.innerHTML = '';
@@ -683,8 +683,8 @@
                 
                 tbody.innerHTML += `
                     <tr class="hover:bg-orange-50/50 transition border-b border-orange-100/30 last:border-0 relative z-10">
-                        <td class="p-4 font-bold text-[#4A3E3D]">\${emp.name}</td>
-                        <td class="p-4 text-right font-black \${balanceColor}">\${balanceText}</td>
+                        <td class="p-4 font-bold text-[#4A3E3D]">${emp.name}</td>
+                        <td class="p-4 text-right font-black ${balanceColor}">${balanceText}</td>
                     </tr>`;
             });
 
@@ -700,18 +700,18 @@
                     groupedTopups[monthStr].push(t);
                 });
                 for(let month in groupedTopups) {
-                    let monthHtml = `<div class="mb-4 last:mb-0 relative z-10"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/40 pb-1 ml-1">\${month}</h4><div class="space-y-2">`;
+                    let monthHtml = `<div class="mb-4 last:mb-0 relative z-10"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/40 pb-1 ml-1">${month}</h4><div class="space-y-2">`;
                     groupedTopups[month].forEach(t => {
                         monthHtml += `
                             <div class="flex justify-between items-center bg-orange-50/40 p-2.5 rounded-xl border border-orange-100/40 backdrop-blur-xs">
                                 <div>
-                                    <span class="font-bold text-sm text-[#4A3E3D] mr-2">\${t.empName}</span>
-                                    <span class="text-[10px] text-stone-400">\${t.date.substring(5)} \${t.time}</span>
+                                    <span class="font-bold text-sm text-[#4A3E3D] mr-2">${t.empName}</span>
+                                    <span class="text-[10px] text-stone-400">${t.date.substring(5)} ${t.time}</span>
                                 </div>
                                 <div class="flex items-center space-x-1.5 relative z-10">
-                                    <span class="text-sm font-black text-green-600 mr-1.5">+\$\${t.amount}</span>
-                                    <button onclick="editTopup('\${t.id}', '\${t.empName}', \${t.amount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">修正</button>
-                                    <button onclick="cancelTopup('\${t.id}', '\${t.empName}', \${t.amount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">刪除</button>
+                                    <span class="text-sm font-black text-green-600 mr-1.5">+\$${t.amount}</span>
+                                    <button onclick="editTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">修正</button>
+                                    <button onclick="cancelTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">刪除</button>
                                 </div>
                             </div>`;
                     });
@@ -722,7 +722,7 @@
         }
 
         function shareToLine() {
-            let text = `🍱 【午餐帳務結算】 \${selectedDate.replace(/-/g, '/')}\n══════════════════\n`;
+            let text = `🍱 【午餐帳務結算】 ${selectedDate.replace(/-/g, '/')}\n══════════════════\n`;
             let negativeEmps = []; let positiveEmps = [];
             
             appData.employees.forEach(emp => {
@@ -731,17 +731,17 @@
                 if (dailyOrders.length > 0) {
                     let foodStr = dailyOrders.map(o => o.food).join(', ');
                     let totalSpent = dailyOrders.reduce((sum, o) => sum + o.price, 0);
-                    todayOrderInfo = (foodStr === "未點餐") ? `\n  └ 今日跳過` : `\n  └ 今日: \${foodStr} (-\$\${Number(totalSpent.toFixed(1))})`;
+                    todayOrderInfo = (foodStr === "未點餐") ? `\n  └ 今日跳過` : `\n  └ 今日: ${foodStr} (-\$${Number(totalSpent.toFixed(1))})`;
                 }
-                let infoStr = `• \${emp.name}｜`;
+                let infoStr = `• ${emp.name}｜`;
                 
                 const displayBalance = Number(Math.abs(emp.balance).toFixed(1));
-                if (emp.balance < 0) negativeEmps.push(`\${infoStr}❗需補款 $\${displayBalance}\${todayOrderInfo}`);
-                else positiveEmps.push(`\${infoStr}餘額 $\${displayBalance}\${todayOrderInfo}`);
+                if (emp.balance < 0) negativeEmps.push(`${infoStr}❗需補款 $${displayBalance}${todayOrderInfo}`);
+                else positiveEmps.push(`${infoStr}餘額 $${displayBalance}${todayOrderInfo}`);
             });
             
-            if (negativeEmps.length > 0) text += `🔴 需補款名單：\n	h\${negativeEmps.join('\n')}\n\n`;
-            if (positiveEmps.length > 0) text += `🟢 餘額充足名單：\n	h\${positiveEmps.join('\n')}\n\n`;
+            if (negativeEmps.length > 0) text += `🔴 需補款名單：\n	h${negativeEmps.join('\n')}\n\n`;
+            if (positiveEmps.length > 0) text += `🟢 餘額充足名單：\n	h${positiveEmps.join('\n')}\n\n`;
             text += `══════════════════\n💡 請需補款的同事記得找總務喔！`;
 
             navigator.clipboard.writeText(text).then(() => { alert("✅ 已成功複製！請切換到 LINE 貼上。"); })
@@ -839,7 +839,7 @@
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
-                link.download = `午餐結算總表_\${targetMonth}.xlsx`;
+                link.download = `午餐結算總表_${targetMonth}.xlsx`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -886,16 +886,16 @@
                     <div class="flex justify-between items-center bg-white/55 p-3.5 rounded-2xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
                         <div class="flex items-center relative z-10">
                             <div class="flex flex-col mr-3 space-y-1">
-                                <button onclick="moveEmpUp(\${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] \${i === 0 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▲</button>
-                                <button onclick="moveEmpDown(\${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] 	h\${i === appData.employees.length - 1 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▼</button>
+                                <button onclick="moveEmpUp(${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] ${i === 0 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▲</button>
+                                <button onclick="moveEmpDown(${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] 	h${i === appData.employees.length - 1 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▼</button>
                             </div>
-                            <span class="font-bold text-sm text-[#4A3E3D]">\${emp.name}</span>
+                            <span class="font-bold text-sm text-[#4A3E3D]">${emp.name}</span>
                         </div>
                         <div class="flex items-center space-x-3 relative z-10">
-                            <span class="text-sm font-black \${balColor}">$\${Number(emp.balance.toFixed(1))}</span>
+                            <span class="text-sm font-black ${balColor}">$${Number(emp.balance.toFixed(1))}</span>
                             <div class="flex space-x-1.5">
-                                <button onclick="editEmpBalance(	h\${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
-                                <button onclick="deleteEmployee(	h\${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
+                                <button onclick="editEmpBalance(	h${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
+                                <button onclick="deleteEmployee(	h${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
                             </div>
                         </div>
                     </div>`;
@@ -909,22 +909,22 @@
                         <div class="flex justify-between items-center mb-3 border-b border-orange-100/30 pb-3 relative z-10">
                             <span class="font-bold text-sm text-[#4A3E3D] flex items-center">
                                 <svg class="w-4 h-4 mr-1.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                	h\${store.name}
+                                	h${store.name}
                             </span>
                             <div class="flex space-x-2">
-                                <button onclick="addMenuItem(\${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">+ 餐點</button>
-                                <button onclick="deleteStore(	h\${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">刪店家</button>
+                                <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">+ 餐點</button>
+                                <button onclick="deleteStore(	h${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">刪店家</button>
                             </div>
                         </div>
                         <div class="space-y-2.5 relative z-10">`;
                 store.menu.forEach((item, mIdx) => {
                     html += `
                         <div class="flex justify-between items-center pl-1 border-b border-orange-100/20 pb-2 last:border-0 last:pb-0 relative z-10">
-                            <span class="text-sm text-stone-500 font-medium">	h\${item.name}</span>
+                            <span class="text-sm text-stone-500 font-medium">	h${item.name}</span>
                             <div class="flex items-center space-x-2 relative z-10">
-                                <span class="text-sm theme-text font-bold mr-1">$\${item.price}</span>
-                                <button onclick="editMenuPrice(	h\${sIdx}, 	h\${mIdx})" class="text-[10px] bg-white/70 text-stone-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">改價</button>
-                                <button onclick="deleteMenuItem(	h\${sIdx}, 	h\${mIdx})" class="text-[10px] bg-red-50/70 text-red-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">刪除</button>
+                                <span class="text-sm theme-text font-bold mr-1">$${item.price}</span>
+                                <button onclick="editMenuPrice(	h${sIdx}, 	h${mIdx})" class="text-[10px] bg-white/70 text-stone-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">改價</button>
+                                <button onclick="deleteMenuItem(	h${sIdx}, 	h${mIdx})" class="text-[10px] bg-red-50/70 text-red-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">刪除</button>
                             </div>
                         </div>`;
                 });
@@ -934,13 +934,13 @@
         }
 
         function addEmployee() { let name = prompt("請輸入新同事姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: name, balance: 0})); }
-        function editEmpBalance(index) { let emp = appData.employees[index]; let newBal = prompt(`請輸入 \${emp.name} 的正確餘額：\n(若要記錄繳款，請至存摺頁面使用「新增收款作業」)`, emp.balance); if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseFloat(newBal)); }
-        function deleteEmployee(index) { if(confirm(`確定要刪除「\${appData.employees[index].name}」嗎？`)) updateSettingsAction(() => appData.employees.splice(index, 1)); }
+        function editEmpBalance(index) { let emp = appData.employees[index]; let newBal = prompt(`請輸入 ${emp.name} 的正確餘額：\n(若要記錄繳款，請至存摺頁面使用「新增收款作業」)`, emp.balance); if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseFloat(newBal)); }
+        function deleteEmployee(index) { if(confirm(`確定要刪除「${appData.employees[index].name}」嗎？`)) updateSettingsAction(() => appData.employees.splice(index, 1)); }
         function addStore() { let name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => { appData.stores.push({id: 's'+Date.now(), name: name, menu: []}); initStoreSelector(); }); }
-        function deleteStore(storeIndex) { if(confirm(`確定要刪除「\${appData.stores[storeIndex].name}」嗎？`)) updateSettingsAction(() => { appData.stores.splice(storeIndex, 1); initStoreSelector(); }); }
+        function deleteStore(storeIndex) { if(confirm(`確定要刪除「${appData.stores[storeIndex].name}」嗎？`)) updateSettingsAction(() => { appData.stores.splice(storeIndex, 1); initStoreSelector(); }); }
         function addMenuItem(storeIndex) { let name = prompt("請輸入餐點："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[storeIndex].menu.push({name: name, price: parseFloat(price)})); }
-        function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「	h\${item.name}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseFloat(newPrice)); }
-        function deleteMenuItem(storeIndex, menuIndex) { if(confirm(`刪除「	h\${appData.stores[storeIndex].menu[menuIndex].name}」？`)) updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1)); }
+        function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「	h${item.name}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseFloat(newPrice)); }
+        function deleteMenuItem(storeIndex, menuIndex) { if(confirm(`刪除「	h${appData.stores[storeIndex].menu[menuIndex].name}」？`)) updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1)); }
     </script>
 </body>
 </html>
