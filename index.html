@@ -97,10 +97,15 @@
 
             <div class="glass-panel p-5 rounded-3xl">
                 <div class="mb-5">
-                    <h2 class="theme-text font-bold mb-3 text-sm tracking-wide flex items-center">
-                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                        選擇對象 <span class="text-xs text-stone-400 font-normal ml-2">(可多選批量點餐)</span>
-                    </h2>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="theme-text font-bold text-sm tracking-wide flex items-center">
+                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                            選擇對象 <span class="text-xs text-stone-400 font-normal ml-2">(可多選批量點餐)</span>
+                        </h2>
+                        <button id="select-all-remaining-btn" onclick="selectAllRemainingEmployees()" class="text-xs bg-orange-100 hover:bg-orange-200 text-[#C85A44] font-bold px-3 py-1.5 rounded-full transition shadow-xs">
+                            一鍵全選剩餘
+                        </button>
+                    </div>
                     <div id="pending-employees" class="grid grid-cols-3 gap-2.5"></div>
                 </div>
 
@@ -389,11 +394,35 @@
             appData.stores.forEach(store => { selector.innerHTML += `<option value="${store.id}">選擇店家：${store.name}</option>`; });
         }
         function changeStore() { selectedEmps = []; currentCart = []; renderPOS(); }
+        
         function toggleEmp(empName) {
             empName = cleanStr(empName);
             if (selectedEmps.includes(empName)) selectedEmps = selectedEmps.filter(n => n !== empName);
             else selectedEmps.push(empName);
             updateCartUI(); renderPOSLeft();
+        }
+
+        /* 【全新功能】：一鍵選取所有今天還沒有任何點餐紀錄的剩餘同事 */
+        function selectAllRemainingEmployees() {
+            const orderedEmpNames = appData.orders.map(o => o.empName);
+            let remainingEmps = [];
+            
+            appData.employees.forEach(emp => {
+                let nameClean = cleanStr(emp.name);
+                if (!orderedEmpNames.includes(nameClean)) {
+                    remainingEmps.push(nameClean);
+                }
+            });
+
+            if (remainingEmps.length === 0) {
+                alert("🎉 所有同事都已經處理完畢囉，沒有剩餘人員！");
+                return;
+            }
+
+            // 直接將所有未點餐的名單塞入選取陣列中
+            selectedEmps = remainingEmps;
+            updateCartUI(); 
+            renderPOSLeft();
         }
 
         function toggleCartItem(foodName, price) {
@@ -646,8 +675,10 @@
         function renderPOSLeft() {
             const orderedEmpNames = appData.orders.map(o => o.empName);
             const empContainer = document.getElementById('pending-employees');
+            const selectAllBtn = document.getElementById('select-all-remaining-btn');
             empContainer.innerHTML = '';
             let allDone = true;
+            
             appData.employees.forEach(emp => {
                 let nameClean = cleanStr(emp.name);
                 if (!orderedEmpNames.includes(nameClean)) {
@@ -657,7 +688,13 @@
                     empContainer.innerHTML += `<button onclick="toggleEmp('${nameClean}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm ${btnClass} truncate px-1 shadow-sm">${nameClean}</button>`;
                 }
             });
-            if (allDone) empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>';
+            
+            if (allDone) {
+                empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>';
+                selectAllBtn.classList.add('opacity-40', 'pointer-events-none'); // 沒有剩餘的人就淡化按鈕
+            } else {
+                selectAllBtn.classList.remove('opacity-40', 'pointer-events-none');
+            }
         }
 
         function renderPOS() {
@@ -676,8 +713,7 @@
                 let eName = cleanStr(order.empName);
                 let fName = cleanStr(order.food);
                 
-                // 【核心強制校正機制】：如果雲端資料庫因為舊代碼被寫死為 53 或是整數，
-                // 但實際上它是共食（shared > 1），我們在此處抓取內部 items 陣列原始單價重新計算，直接覆蓋修正它！
+                // 【核心強制校正機制】：從 items 原始單價動態精準計算，百分之百避免寫死的舊整數資料干擾
                 let oPrice = parseFloat(order.price) || 0;
                 if (order.shared > 1 && order.items && order.items.length > 0) {
                     let baseCartTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
@@ -813,7 +849,6 @@
                 if (dailyOrders.length > 0) {
                     let foodStr = dailyOrders.map(o => cleanStr(o.food)).join(', ');
                     
-                    // 同步在 LINE 分享也執行共食價格校正
                     let totalSpent = dailyOrders.reduce((sum, o) => {
                         let singlePrice = parseFloat(o.price) || 0;
                         if (o.shared > 1 && o.items && o.items.length > 0) {
@@ -1060,7 +1095,7 @@
         function deleteStore(storeIndex) { if(confirm(`確定要刪除「${cleanStr(appData.stores[storeIndex].name)}」嗎？`)) updateSettingsAction(() => { appData.stores.splice(storeIndex, 1); initStoreSelector(); }); }
         function addMenuItem(storeIndex) { let name = prompt("請輸入餐點："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[storeIndex].menu.push({name: cleanStr(name), price: parseFloat(price)})); }
         function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「${cleanStr(item.name)}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseFloat(newPrice)); }
-        function deleteMenuItem(storeIndex, menuIndex) { if(confirm(`刪除「${cleanStr(appData.stores[storeIndex].menu[menuIndex].name)}」？`)) updateSettingsAction(() => { appData.stores[storeIndex].menu.splice(menuIndex, 1); }); }
+        function deleteMenuItem(storeIndex, menuIndex) { if(confirm(`刪除「${cleanStr(appData.stores[storeIndex].menu[menuIndex].name)}」？`)) updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1)); }
     </script>
 </body>
 </html>
