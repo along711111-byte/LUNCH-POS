@@ -66,7 +66,6 @@
         <h2 class="text-lg font-bold tracking-widest text-[#4A3E3D]" id="loading-text">系統連線中...</h2>
     </div>
 
-    <!-- Q版對話視窗 -->
     <div id="q-animation-overlay" onclick="closeQAnimation()">
         <div class="anim-bubble relative bg-white p-5 rounded-3xl shadow-2xl mb-6 max-w-[85%] border-[3px] border-[#C85A44]" onclick="event.stopPropagation()">
             <p class="text-[#4A3E3D] font-bold text-center leading-relaxed text-lg" id="q-speech-text"></p>
@@ -90,7 +89,6 @@
 
     <main class="w-full flex-grow relative px-4 mt-6">
 
-        <!-- ================= 分頁 1：點餐 POS 機 ================= -->
         <div id="view-pos" class="space-y-6">
             <div class="relative">
                 <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20"></select>
@@ -159,7 +157,6 @@
             </div>
         </div>
 
-        <!-- ================= 分頁 2：帳務存摺 ================= -->
         <div id="view-ledger" class="hidden-view space-y-5">
             
             <div class="bg-gradient-to-br from-orange-50/60 to-amber-50/60 p-5 rounded-3xl flex justify-between items-center border border-orange-100/40 shadow-sm opacity-90 backdrop-blur-sm relative">
@@ -219,7 +216,6 @@
             </details>
         </div>
 
-        <!-- ================= 分頁 3：系統設定 ================= -->
         <div id="view-settings" class="hidden-view space-y-6">
             <div class="glass-panel p-5 rounded-3xl">
                 <div class="flex justify-between items-center mb-5">
@@ -278,6 +274,11 @@
         let appData = { employees: [], stores: [], orders: [], topups: [] };
         let selectedEmps = []; currentCart = []; selectedDate = ""; 
 
+        function cleanStr(val) {
+            if (val === undefined || val === null) return "";
+            return String(val).replace(/[\t h]/g, '').trim();
+        }
+
         function getLocalISODate() {
             const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
             return d.toISOString().split('T')[0];
@@ -295,7 +296,10 @@
                 document.getElementById('loading-overlay').style.display = 'none';
                 initStoreSelector();
                 renderAll();
-            } catch(e) { alert("連線失敗！請檢查網路。"); }
+            } catch(e) { 
+                console.error(e);
+                alert("連線失敗或資料載入錯誤！請檢查主控台。"); 
+            }
         };
 
         async function syncSettingsFromCloud() {
@@ -303,8 +307,12 @@
             const docSnap = await docRef.get();
             if (docSnap.exists) {
                 let data = docSnap.data();
-                appData.employees = data.employees || [];
-                appData.stores = data.stores || [];
+                appData.employees = (data.employees || []).map(e => ({ name: cleanStr(e.name), balance: parseFloat(e.balance) || 0 }));
+                appData.stores = (data.stores || []).map(s => ({
+                    id: s.id, 
+                    name: cleanStr(s.name),
+                    menu: (s.menu || []).map(m => ({ name: cleanStr(m.name), price: parseFloat(m.price) || 0 }))
+                }));
             } else {
                 appData.employees = [ { name: '王小明', balance: 0 }, { name: '阿迪', balance: 0 } ];
                 appData.stores = [ { id: 's1', name: '測試便當店', menu: [{name: '排骨飯', price: 100}] } ];
@@ -314,17 +322,43 @@
 
         async function syncOrdersFromCloud() {
             const snapshot = await fdb.collection("Orders").where("date", "==", selectedDate).get();
-            appData.orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            appData.orders = snapshot.docs.map(doc => {
+                let d = doc.data();
+                return {
+                    id: doc.id,
+                    date: d.date,
+                    empName: cleanStr(d.empName),
+                    food: cleanStr(d.food),
+                    price: parseFloat(d.price) || 0,
+                    shared: parseInt(d.shared) || 1,
+                    items: d.items || []
+                };
+            });
         }
 
         async function syncTopupsFromCloud() {
             const snapshot = await fdb.collection("Topups").orderBy("timestamp", "desc").limit(50).get();
-            appData.topups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            appData.topups = snapshot.docs.map(doc => {
+                let d = doc.data();
+                return {
+                    id: doc.id,
+                    date: d.date,
+                    time: d.time,
+                    empName: cleanStr(d.empName),
+                    amount: parseFloat(d.amount) || 0
+                };
+            });
         }
 
         async function saveSettingsToCloud() {
+            let cleanEmployees = appData.employees.map(e => ({ name: cleanStr(e.name), balance: parseFloat(e.balance) || 0 }));
+            let cleanStores = appData.stores.map(s => ({
+                id: s.id,
+                name: cleanStr(s.name),
+                menu: s.menu.map(m => ({ name: cleanStr(m.name), price: parseFloat(m.price) || 0 }))
+            }));
             await fdb.collection("System").doc("Settings").set({
-                employees: appData.employees, stores: appData.stores
+                employees: cleanEmployees, stores: cleanStores
             });
         }
 
@@ -356,12 +390,15 @@
         }
         function changeStore() { selectedEmps = []; currentCart = []; renderPOS(); }
         function toggleEmp(empName) {
+            empName = cleanStr(empName);
             if (selectedEmps.includes(empName)) selectedEmps = selectedEmps.filter(n => n !== empName);
             else selectedEmps.push(empName);
             updateCartUI(); renderPOSLeft();
         }
 
         function toggleCartItem(foodName, price) {
+            foodName = cleanStr(foodName);
+            price = parseFloat(price) || 0;
             if (foodName === '未點餐') {
                 if (currentCart.some(i => i.name === '未點餐')) {
                     currentCart = []; 
@@ -381,6 +418,12 @@
             updateMenuUI();
         }
 
+        function formatMoney(num) {
+            let val = parseFloat(num) || 0;
+            if (val % 1 === 0) return String(val); 
+            return String(val.toFixed(1));        
+        }
+
         function updateCartUI() {
             const btn = document.getElementById('submit-btn');
             const splitInfo = document.getElementById('split-info');
@@ -397,11 +440,11 @@
                 if (selectedEmps.length > 1) {
                     if (isShared) {
                         finalGrandTotal = cartBaseTotal;
-                        let perPerson = Number((cartBaseTotal / selectedEmps.length).toFixed(1));
-                        splitInfo.innerText = `☑️ 共食模式：總計 $${cartBaseTotal}，每人扣 $${perPerson}`;
+                        let perPerson = parseFloat((cartBaseTotal / selectedEmps.length).toFixed(1));
+                        splitInfo.innerText = `☑️ 共食模式：總計 $${formatMoney(cartBaseTotal)}，每人扣 $${formatMoney(perPerson)}`;
                     } else {
                         finalGrandTotal = cartBaseTotal * selectedEmps.length;
-                        splitInfo.innerText = `📦 獨立叫餐：共 ${selectedEmps.length} 份，每人扣 $${cartBaseTotal}`;
+                        splitInfo.innerText = `📦 獨立叫餐：共 ${selectedEmps.length} 份，每人扣 $${formatMoney(cartBaseTotal)}`;
                     }
                 } else {
                     finalGrandTotal = cartBaseTotal;
@@ -418,7 +461,7 @@
                 btn.classList.remove('bg-white', 'text-[#C85A44]', 'shadow-lg');
                 btn.innerText = `請選擇餐點`;
             }
-            document.getElementById('cart-total').innerText = `$${Number(finalGrandTotal.toFixed(1))}`;
+            document.getElementById('cart-total').innerText = `$${formatMoney(finalGrandTotal)}`;
         }
 
         function updateMenuUI() {
@@ -447,7 +490,7 @@
                     menuContainer.innerHTML += `
                         <button onclick="toggleCartItem('${item.name}', ${item.price})" class="btn-active p-3.5 rounded-xl transition-all duration-200 text-left flex flex-col justify-between border ${btnClass}">
                             <span class="font-bold text-sm truncate ${titleClass}">${item.name}</span>
-                            <span class="font-bold mt-1 text-sm ${priceClass}">$${item.price}</span>
+                            <span class="font-bold mt-1 text-sm ${priceClass}">$${formatMoney(item.price)}</span>
                         </button>`;
                 });
             }
@@ -456,7 +499,7 @@
         async function submitCart() {
             let isShared = document.getElementById('is-shared-order').checked && selectedEmps.length > 1;
             let cartBaseTotal = currentCart.reduce((sum, item) => sum + item.price, 0);
-            let perPersonAmount = isShared ? Number((cartBaseTotal / selectedEmps.length).toFixed(1)) : cartBaseTotal;
+            let perPersonAmount = isShared ? parseFloat((cartBaseTotal / selectedEmps.length).toFixed(1)) : cartBaseTotal;
             let foodNames = currentCart.map(item => item.name).join(' + ');
             let note = isShared ? ' (共食)' : '';
             let sharedCount = isShared ? selectedEmps.length : 1;
@@ -466,7 +509,7 @@
 
             backupEmps.forEach(empName => {
                 let tempId = 'temp_' + Date.now() + Math.random(); 
-                appData.orders.push({ id: tempId, date: selectedDate, empName: empName, food: foodNames + note, price: perPersonAmount, items: backupCart, shared: sharedCount });
+                appData.orders.push({ id: tempId, date: selectedDate, empName: cleanStr(empName), food: cleanStr(foodNames + note), price: perPersonAmount, items: backupCart, shared: sharedCount });
                 let emp = appData.employees.find(e => e.name === empName);
                 if(emp) emp.balance -= perPersonAmount;
             });
@@ -474,16 +517,26 @@
 
             try {
                 let writePromises = backupEmps.map(empName => {
-                    return fdb.collection("Orders").add({ date: selectedDate, empName: empName, food: foodNames + note, price: perPersonAmount, items: backupCart, shared: sharedCount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+                    return fdb.collection("Orders").add({ date: selectedDate, empName: cleanStr(empName), food: cleanStr(foodNames + note), price: perPersonAmount, items: backupCart, shared: sharedCount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
                 });
                 await Promise.all(writePromises); 
                 await saveSettingsToCloud();      
-                syncOrdersFromCloud(); 
+                await syncOrdersFromCloud(); 
+                
+                const orderedEmpNames = appData.orders.map(o => o.empName);
+                let allDone = appData.employees.every(emp => orderedEmpNames.includes(emp.name));
+                if (allDone && appData.employees.length > 0) {
+                    showQAnimation();
+                }
+                
+                renderAll();
             } catch(e) {}
         }
 
         async function cancelOrder(orderId, empName, price) {
-            if(confirm(price === 0 ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${price} 退回給 ${empName} 嗎？`)) {
+            empName = cleanStr(empName);
+            price = parseFloat(price) || 0;
+            if(confirm(price === 0 ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${formatMoney(price)} 退回給 ${empName} 嗎？`)) {
                 const orderIndex = appData.orders.findIndex(o => o.id === orderId);
                 if(orderIndex > -1) appData.orders.splice(orderIndex, 1);
                 let emp = appData.employees.find(e => e.name === empName);
@@ -498,7 +551,7 @@
         }
 
         async function submitTopup() {
-            let empName = document.getElementById('topup-emp').value;
+            let empName = cleanStr(document.getElementById('topup-emp').value);
             let amount = parseFloat(document.getElementById('topup-amount').value);
             if(!empName) return alert("請選擇收款對象");
             if(isNaN(amount) || amount === 0) return alert("請輸入正確金額");
@@ -529,6 +582,8 @@
         }
 
         async function editTopup(id, empName, oldAmount) {
+            empName = cleanStr(empName);
+            oldAmount = parseFloat(oldAmount) || 0;
             let newAmountStr = prompt(`修正「${empName}」的這筆收款紀錄：\n請輸入正確的金額：`, oldAmount);
             if (newAmountStr === null) return; 
             
@@ -551,7 +606,9 @@
         }
 
         async function cancelTopup(id, empName, amount) {
-            if(confirm(`確定要刪除「${empName} 收款 $${amount}」的紀錄嗎？\n(會將款項從餘額中扣回)`)) {
+            empName = cleanStr(empName);
+            amount = parseFloat(amount) || 0;
+            if(confirm(`確定要刪除「${empName} 收款 $${formatMoney(amount)}」的紀錄嗎？\n(會將款項從餘額中扣回)`)) {
                 document.getElementById('loading-overlay').style.display = 'flex';
                 try {
                     let emp = appData.employees.find(e => e.name === empName);
@@ -568,15 +625,17 @@
         function showQAnimation() {
             let validOrders = appData.orders.filter(o => o.food !== "未點餐");
             let orderingEmps = new Set();
-            let sharedEmps = new Set();
+            let sharedCountNum = 0;
             validOrders.forEach(order => {
                 orderingEmps.add(order.empName);
-                if (order.shared > 1) sharedEmps.add(order.shared);
+                if (order.shared > 1) {
+                    sharedCountNum++;
+                }
             });
             document.getElementById('q-speech-text').innerHTML = `
                 ✨ 辛苦啦！<br>
                 今天總共有 <span class="text-2xl text-orange-500">${orderingEmps.size}</span> 人點餐<br>
-                其中 <span class="text-xl text-orange-400">${sharedEmps.size}</span> 人是共食喔！<br>
+                其中 <span class="text-xl text-orange-400">${sharedCountNum}</span> 人是共食喔！<br>
                 <span class="text-sm text-stone-400 mt-2 block">記得打電話叫便當～📞</span>
             `;
             document.getElementById('q-animation-overlay').style.display = 'flex';
@@ -590,11 +649,12 @@
             empContainer.innerHTML = '';
             let allDone = true;
             appData.employees.forEach(emp => {
-                if (!orderedEmpNames.includes(emp.name)) {
+                let nameClean = cleanStr(emp.name);
+                if (!orderedEmpNames.includes(nameClean)) {
                     allDone = false;
-                    const isSelected = selectedEmps.includes(emp.name);
+                    const isSelected = selectedEmps.includes(nameClean);
                     const btnClass = isSelected ? 'emp-selected' : 'bg-white/60 text-[#4A3E3D] border-orange-100 hover:border-orange-300 backdrop-blur-xs';
-                    empContainer.innerHTML += `<button onclick="toggleEmp('${emp.name}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm ${btnClass} truncate px-1 shadow-sm">${emp.name}</button>`;
+                    empContainer.innerHTML += `<button onclick="toggleEmp('${nameClean}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm ${btnClass} truncate px-1 shadow-sm">${nameClean}</button>`;
                 }
             });
             if (allDone) empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>';
@@ -613,37 +673,52 @@
             if(appData.orders.length === 0) orderContainer.innerHTML = '<div class="text-center py-5"><span class="text-xs text-stone-400">目前尚無明細</span></div>';
 
             appData.orders.forEach(order => {
-                totalAmount += order.price;
-                if(order.food !== "未點餐") {
-                    orderingEmps.add(order.empName);
-                    if (order.shared > 1) sharedEmps.add(order.empName);
+                let eName = cleanStr(order.empName);
+                let fName = cleanStr(order.food);
+                
+                // 【核心強制校正機制】：如果雲端資料庫因為舊代碼被寫死為 53 或是整數，
+                // 但實際上它是共食（shared > 1），我們在此處抓取內部 items 陣列原始單價重新計算，直接覆蓋修正它！
+                let oPrice = parseFloat(order.price) || 0;
+                if (order.shared > 1 && order.items && order.items.length > 0) {
+                    let baseCartTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+                    if (baseCartTotal > 0) {
+                        oPrice = parseFloat((baseCartTotal / order.shared).toFixed(1));
+                    }
+                }
+                
+                totalAmount += oPrice;
+                if(fName !== "未點餐") {
+                    orderingEmps.add(eName);
+                    if (order.shared > 1) sharedEmps.add(eName);
 
                     if(order.items && order.shared) {
                         order.items.forEach(item => {
-                            if(item.name === "未點餐") return;
-                            if(!itemCounts[item.name]) itemCounts[item.name] = 0;
-                            itemCounts[item.name] += (1 / order.shared); 
+                            if (!item) return; 
+                            let itemCleanName = cleanStr(item.name);
+                            if(itemCleanName === "未點餐" || !itemCleanName) return;
+                            if(!itemCounts[itemCleanName]) itemCounts[itemCleanName] = 0;
+                            itemCounts[itemCleanName] += (1 / order.shared); 
                         });
                     }
                 }
                 
-                let isSkip = order.food === "未點餐";
+                let isSkip = fName === "未點餐";
                 let foodClass = isSkip ? "text-stone-400" : "text-stone-500";
                 
                 orderContainer.innerHTML += `
                     <div class="flex justify-between items-center bg-white/55 p-3.5 rounded-2xl border border-orange-50/50 shadow-sm backdrop-blur-xs">
                         <div class="flex-grow overflow-hidden pr-3">
-                            <span class="font-bold text-[#4A3E3D] text-sm block mb-0.5">	h${order.empName}</span>
-                            <span class="text-xs ${foodClass} truncate block w-full">	h${order.food}</span>
+                            <span class="font-bold text-[#4A3E3D] text-sm block mb-0.5">${eName}</span>
+                            <span class="text-xs ${foodClass} truncate block w-full">${fName}</span>
                         </div>
                         <div class="flex items-center space-x-3 flex-shrink-0 relative z-10">
-                            	h${!isSkip ? `<span class="font-bold theme-text text-sm">$` + Number(order.price.toFixed(1)) + `</span>` : ''}
-                            <button onclick="cancelOrder('${order.id}', '${order.empName}', ${order.price})" class="text-orange-500 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg text-xs font-medium transition">退單</button>
+                            ${!isSkip ? `<span class="font-bold theme-text text-sm">$${formatMoney(oPrice)}</span>` : ''}
+                            <button onclick="cancelOrder('${order.id}', '${eName}', ${oPrice})" class="text-orange-500 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg text-xs font-medium transition">退單</button>
                         </div>
                     </div>`;
             });
             
-            document.getElementById('pos-today-total').innerText = `$${Number(totalAmount.toFixed(1))}`;
+            document.getElementById('pos-today-total').innerText = `$${formatMoney(totalAmount)}`;
             
             const detailContainer = document.getElementById('pos-detail-list');
             detailContainer.innerHTML = '';
@@ -668,22 +743,26 @@
 
         function renderLedger() {
             let totalCash = appData.employees.reduce((sum, emp) => sum + emp.balance, 0);
-            document.getElementById('admin-cash-on-hand').innerText = `$${Number(totalCash.toFixed(1))}`;
+            document.getElementById('admin-cash-on-hand').innerText = `$${formatMoney(totalCash)}`;
             
             const topupSelect = document.getElementById('topup-emp');
             topupSelect.innerHTML = '<option value="">選擇員工...</option>';
-            appData.employees.forEach(emp => { topupSelect.innerHTML += `<option value="${emp.name}">	h${emp.name}</option>`; });
+            appData.employees.forEach(emp => { 
+                let cleanN = cleanStr(emp.name);
+                topupSelect.innerHTML += `<option value="${cleanN}">${cleanN}</option>`; 
+            });
 
             const tbody = document.getElementById('ledger-table');
             tbody.innerHTML = '';
             appData.employees.forEach(emp => {
+                let cleanN = cleanStr(emp.name);
                 const balanceColor = emp.balance < 0 ? 'text-red-500' : (emp.balance > 0 ? 'text-green-600' : 'text-stone-400');
-                const displayBalance = Number(Math.abs(emp.balance).toFixed(1));
-                const balanceText = emp.balance < 0 ? `需補款 $` + displayBalance : `$` + displayBalance;
+                const displayBalance = Math.abs(emp.balance);
+                const balanceText = emp.balance < 0 ? `需補款 $${formatMoney(displayBalance)}` : `$${formatMoney(displayBalance)}`;
                 
                 tbody.innerHTML += `
                     <tr class="hover:bg-orange-50/50 transition border-b border-orange-100/30 last:border-0 relative z-10">
-                        <td class="p-4 font-bold text-[#4A3E3D]">${emp.name}</td>
+                        <td class="p-4 font-bold text-[#4A3E3D]">${cleanN}</td>
                         <td class="p-4 text-right font-black ${balanceColor}">${balanceText}</td>
                     </tr>`;
             });
@@ -702,16 +781,18 @@
                 for(let month in groupedTopups) {
                     let monthHtml = `<div class="mb-4 last:mb-0 relative z-10"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/40 pb-1 ml-1">${month}</h4><div class="space-y-2">`;
                     groupedTopups[month].forEach(t => {
+                        let tName = cleanStr(t.empName);
+                        let tAmount = parseFloat(t.amount) || 0;
                         monthHtml += `
                             <div class="flex justify-between items-center bg-orange-50/40 p-2.5 rounded-xl border border-orange-100/40 backdrop-blur-xs">
                                 <div>
-                                    <span class="font-bold text-sm text-[#4A3E3D] mr-2">${t.empName}</span>
+                                    <span class="font-bold text-sm text-[#4A3E3D] mr-2">${tName}</span>
                                     <span class="text-[10px] text-stone-400">${t.date.substring(5)} ${t.time}</span>
                                 </div>
                                 <div class="flex items-center space-x-1.5 relative z-10">
-                                    <span class="text-sm font-black text-green-600 mr-1.5">+\$${t.amount}</span>
-                                    <button onclick="editTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">修正</button>
-                                    <button onclick="cancelTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">刪除</button>
+                                    <span class="text-sm font-black text-green-600 mr-1.5">+$${formatMoney(tAmount)}</span>
+                                    <button onclick="editTopup('${t.id}', '${tName}', ${tAmount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">修正</button>
+                                    <button onclick="cancelTopup('${t.id}', '${tName}', ${tAmount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">刪除</button>
                                 </div>
                             </div>`;
                     });
@@ -726,22 +807,33 @@
             let negativeEmps = []; let positiveEmps = [];
             
             appData.employees.forEach(emp => {
-                let dailyOrders = appData.orders.filter(o => o.empName === emp.name && o.date === selectedDate);
+                let cleanN = cleanStr(emp.name);
+                let dailyOrders = appData.orders.filter(o => cleanStr(o.empName) === cleanN && o.date === selectedDate);
                 let todayOrderInfo = "";
                 if (dailyOrders.length > 0) {
-                    let foodStr = dailyOrders.map(o => o.food).join(', ');
-                    let totalSpent = dailyOrders.reduce((sum, o) => sum + o.price, 0);
-                    todayOrderInfo = (foodStr === "未點餐") ? `\n  └ 今日跳過` : `\n  └ 今日: ${foodStr} (-\$${Number(totalSpent.toFixed(1))})`;
+                    let foodStr = dailyOrders.map(o => cleanStr(o.food)).join(', ');
+                    
+                    // 同步在 LINE 分享也執行共食價格校正
+                    let totalSpent = dailyOrders.reduce((sum, o) => {
+                        let singlePrice = parseFloat(o.price) || 0;
+                        if (o.shared > 1 && o.items && o.items.length > 0) {
+                            let baseCartTotal = o.items.reduce((s, item) => s + (parseFloat(item.price) || 0), 0);
+                            if (baseCartTotal > 0) singlePrice = parseFloat((baseCartTotal / o.shared).toFixed(1));
+                        }
+                        return sum + singlePrice;
+                    }, 0);
+                    
+                    todayOrderInfo = (foodStr === "未點餐") ? `\n  └ 今日跳過` : `\n  └ 今日: ${foodStr} (-$${formatMoney(totalSpent)})`;
                 }
-                let infoStr = `• ${emp.name}｜`;
+                let infoStr = `• ${cleanN}｜`;
                 
-                const displayBalance = Number(Math.abs(emp.balance).toFixed(1));
-                if (emp.balance < 0) negativeEmps.push(`${infoStr}❗需補款 $${displayBalance}${todayOrderInfo}`);
-                else positiveEmps.push(`${infoStr}餘額 $${displayBalance}${todayOrderInfo}`);
+                const displayBalance = Math.abs(emp.balance);
+                if (emp.balance < 0) negativeEmps.push(`${infoStr}❗需補款 $${formatMoney(displayBalance)}${todayOrderInfo}`);
+                else positiveEmps.push(`${infoStr}餘額 $${formatMoney(displayBalance)}${todayOrderInfo}`);
             });
             
-            if (negativeEmps.length > 0) text += `🔴 需補款名單：\n	h${negativeEmps.join('\n')}\n\n`;
-            if (positiveEmps.length > 0) text += `🟢 餘額充足名單：\n	h${positiveEmps.join('\n')}\n\n`;
+            if (negativeEmps.length > 0) text += `🔴 需補款名單：\n${negativeEmps.join('\n')}\n\n`;
+            if (positiveEmps.length > 0) text += `🟢 餘額充足名單：\n${positiveEmps.join('\n')}\n\n`;
             text += `══════════════════\n💡 請需補款的同事記得找總務喔！`;
 
             navigator.clipboard.writeText(text).then(() => { alert("✅ 已成功複製！請切換到 LINE 貼上。"); })
@@ -796,31 +888,56 @@
                 });
 
                 appData.employees.forEach(emp => {
-                    let empFutureOrders = allFutureOrders.filter(o => o.empName === emp.name);
-                    let empFutureTopups = allFutureTopups.filter(t => t.empName === emp.name);
-                    let futureSpendTotal = empFutureOrders.reduce((sum, o) => sum + o.price, 0);
-                    let futureTopupTotal = empFutureTopups.reduce((sum, t) => sum + t.amount, 0);
+                    let cleanN = cleanStr(emp.name);
+                    let empFutureOrders = allFutureOrders.filter(o => cleanStr(o.empName) === cleanN);
+                    let empFutureTopups = allFutureTopups.filter(t => cleanStr(t.empName) === cleanN);
+                    
+                    let futureSpendTotal = empFutureOrders.reduce((sum, o) => {
+                        let p = parseFloat(o.price) || 0;
+                        if (o.shared > 1 && o.items && o.items.length > 0) {
+                            let bTotal = o.items.reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
+                            if (bTotal > 0) p = parseFloat((bTotal / o.shared).toFixed(1));
+                        }
+                        return sum + p;
+                    }, 0);
+                    
+                    let futureTopupTotal = empFutureTopups.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
                     let lastMonthBalance = emp.balance - futureTopupTotal + futureSpendTotal;
 
-                    let empOrders = monthOrders.filter(o => o.empName === emp.name);
-                    let empTopups = monthTopups.filter(t => t.empName === emp.name);
+                    let empOrders = monthOrders.filter(o => cleanStr(o.empName) === cleanN);
+                    let empTopups = monthTopups.filter(t => cleanStr(t.empName) === cleanN);
 
-                    let totalSpend = empOrders.reduce((sum, o) => sum + o.price, 0);
-                    let totalTopup = empTopups.reduce((sum, t) => sum + t.amount, 0);
+                    let totalSpend = empOrders.reduce((sum, o) => {
+                        let p = parseFloat(o.price) || 0;
+                        if (o.shared > 1 && o.items && o.items.length > 0) {
+                            let bTotal = o.items.reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
+                            if (bTotal > 0) p = parseFloat((bTotal / o.shared).toFixed(1));
+                        }
+                        return sum + p;
+                    }, 0);
+                    
+                    let totalTopup = empTopups.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
                     let spendVal = totalSpend > 0 ? -totalSpend : 0; 
                     
                     let rowData = {
-                        name: emp.name,
-                        lastMonthBal: Number(lastMonthBalance.toFixed(1)), 
-                        balance: Number(emp.balance.toFixed(1)),
-                        topup: totalTopup > 0 ? Number(totalTopup.toFixed(1)) : '',
-                        spend: spendVal !== 0 ? Number(spendVal.toFixed(1)) : ''
+                        name: cleanN,
+                        lastMonthBal: parseFloat(lastMonthBalance.toFixed(1)), 
+                        balance: parseFloat(emp.balance.toFixed(1)),
+                        topup: totalTopup > 0 ? parseFloat(totalTopup.toFixed(1)) : '',
+                        spend: spendVal !== 0 ? parseFloat(spendVal.toFixed(1)) : ''
                     };
 
                     activeDays.forEach(d => {
                         let dailyOrders = empOrders.filter(o => o.date === d.dateStr);
-                        let dailySpend = dailyOrders.reduce((sum, o) => sum + o.price, 0);
-                        rowData['d' + d.day] = dailySpend > 0 ? Number((-dailySpend).toFixed(1)) : '';
+                        let dailySpend = dailyOrders.reduce((sum, o) => {
+                            let p = parseFloat(o.price) || 0;
+                            if (o.shared > 1 && o.items && o.items.length > 0) {
+                                let bTotal = o.items.reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
+                                if (bTotal > 0) p = parseFloat((bTotal / o.shared).toFixed(1));
+                            }
+                            return sum + p;
+                        }, 0);
+                        rowData['d' + d.day] = dailySpend > 0 ? parseFloat((-dailySpend).toFixed(1)) : '';
                     });
 
                     let row = sheet.addRow(rowData);
@@ -881,21 +998,22 @@
             const empContainer = document.getElementById('setting-employees');
             empContainer.innerHTML = '';
             appData.employees.forEach((emp, i) => {
+                let cleanN = cleanStr(emp.name);
                 const balColor = emp.balance < 0 ? 'text-red-500' : 'text-stone-500';
                 empContainer.innerHTML += `
                     <div class="flex justify-between items-center bg-white/55 p-3.5 rounded-2xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
                         <div class="flex items-center relative z-10">
                             <div class="flex flex-col mr-3 space-y-1">
                                 <button onclick="moveEmpUp(${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] ${i === 0 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▲</button>
-                                <button onclick="moveEmpDown(${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] 	h${i === appData.employees.length - 1 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▼</button>
+                                <button onclick="moveEmpDown(${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] ${i === appData.employees.length - 1 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▼</button>
                             </div>
-                            <span class="font-bold text-sm text-[#4A3E3D]">${emp.name}</span>
+                            <span class="font-bold text-sm text-[#4A3E3D]">${cleanN}</span>
                         </div>
                         <div class="flex items-center space-x-3 relative z-10">
-                            <span class="text-sm font-black ${balColor}">$${Number(emp.balance.toFixed(1))}</span>
+                            <span class="text-sm font-black ${balColor}">$${formatMoney(emp.balance)}</span>
                             <div class="flex space-x-1.5">
-                                <button onclick="editEmpBalance(	h${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
-                                <button onclick="deleteEmployee(	h${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
+                                <button onclick="editEmpBalance(${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
+                                <button onclick="deleteEmployee(${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
                             </div>
                         </div>
                     </div>`;
@@ -904,27 +1022,29 @@
             const storeContainer = document.getElementById('setting-stores');
             storeContainer.innerHTML = '';
             appData.stores.forEach((store, sIdx) => {
+                let sName = cleanStr(store.name);
                 let html = `
                     <div class="bg-white/55 p-4 rounded-3xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
                         <div class="flex justify-between items-center mb-3 border-b border-orange-100/30 pb-3 relative z-10">
                             <span class="font-bold text-sm text-[#4A3E3D] flex items-center">
                                 <svg class="w-4 h-4 mr-1.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                	h${store.name}
+                                ${sName}
                             </span>
                             <div class="flex space-x-2">
                                 <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">+ 餐點</button>
-                                <button onclick="deleteStore(	h${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">刪店家</button>
+                                <button onclick="deleteStore(${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">刪店家</button>
                             </div>
                         </div>
                         <div class="space-y-2.5 relative z-10">`;
                 store.menu.forEach((item, mIdx) => {
+                    let mName = cleanStr(item.name);
                     html += `
                         <div class="flex justify-between items-center pl-1 border-b border-orange-100/20 pb-2 last:border-0 last:pb-0 relative z-10">
-                            <span class="text-sm text-stone-500 font-medium">	h${item.name}</span>
+                            <span class="text-sm text-stone-500 font-medium">${mName}</span>
                             <div class="flex items-center space-x-2 relative z-10">
-                                <span class="text-sm theme-text font-bold mr-1">$${item.price}</span>
-                                <button onclick="editMenuPrice(	h${sIdx}, 	h${mIdx})" class="text-[10px] bg-white/70 text-stone-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">改價</button>
-                                <button onclick="deleteMenuItem(	h${sIdx}, 	h${mIdx})" class="text-[10px] bg-red-50/70 text-red-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">刪除</button>
+                                <span class="text-sm theme-text font-bold mr-1">$${formatMoney(item.price)}</span>
+                                <button onclick="editMenuPrice(${sIdx}, ${mIdx})" class="text-[10px] bg-white/70 text-stone-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">改價</button>
+                                <button onclick="deleteMenuItem(${sIdx}, ${mIdx})" class="text-[10px] bg-red-50/70 text-red-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">刪除</button>
                             </div>
                         </div>`;
                 });
@@ -933,14 +1053,14 @@
             });
         }
 
-        function addEmployee() { let name = prompt("請輸入新同事姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: name, balance: 0})); }
-        function editEmpBalance(index) { let emp = appData.employees[index]; let newBal = prompt(`請輸入 ${emp.name} 的正確餘額：\n(若要記錄繳款，請至存摺頁面使用「新增收款作業」)`, emp.balance); if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseFloat(newBal)); }
-        function deleteEmployee(index) { if(confirm(`確定要刪除「${appData.employees[index].name}」嗎？`)) updateSettingsAction(() => appData.employees.splice(index, 1)); }
-        function addStore() { let name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => { appData.stores.push({id: 's'+Date.now(), name: name, menu: []}); initStoreSelector(); }); }
-        function deleteStore(storeIndex) { if(confirm(`確定要刪除「${appData.stores[storeIndex].name}」嗎？`)) updateSettingsAction(() => { appData.stores.splice(storeIndex, 1); initStoreSelector(); }); }
-        function addMenuItem(storeIndex) { let name = prompt("請輸入餐點："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[storeIndex].menu.push({name: name, price: parseFloat(price)})); }
-        function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「	h${item.name}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseFloat(newPrice)); }
-        function deleteMenuItem(storeIndex, menuIndex) { if(confirm(`刪除「	h${appData.stores[storeIndex].menu[menuIndex].name}」？`)) updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1)); }
+        function addEmployee() { let name = prompt("請輸入新同事姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: cleanStr(name), balance: 0})); }
+        function editEmpBalance(index) { let emp = appData.employees[index]; let newBal = prompt(`請輸入 ${cleanStr(emp.name)} 的正確餘額：\n(若要記錄繳款，請至存摺頁面使用「新增收款作業」)`, emp.balance); if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseFloat(newBal)); }
+        function deleteEmployee(index) { if(confirm(`確定要刪除「${cleanStr(appData.employees[index].name)}」嗎？`)) updateSettingsAction(() => appData.employees.splice(index, 1)); }
+        function addStore() { let name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => { appData.stores.push({id: 's'+Date.now(), name: cleanStr(name), menu: []}); initStoreSelector(); }); }
+        function deleteStore(storeIndex) { if(confirm(`確定要刪除「${cleanStr(appData.stores[storeIndex].name)}」嗎？`)) updateSettingsAction(() => { appData.stores.splice(storeIndex, 1); initStoreSelector(); }); }
+        function addMenuItem(storeIndex) { let name = prompt("請輸入餐點："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[storeIndex].menu.push({name: cleanStr(name), price: parseFloat(price)})); }
+        function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「${cleanStr(item.name)}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseFloat(newPrice)); }
+        function deleteMenuItem(storeIndex, menuIndex) { if(confirm(`刪除「${cleanStr(appData.stores[storeIndex].menu[menuIndex].name)}」？`)) updateSettingsAction(() => { appData.stores[storeIndex].menu.splice(menuIndex, 1); }); }
     </script>
 </body>
 </html>
