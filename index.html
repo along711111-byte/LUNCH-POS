@@ -6,6 +6,8 @@
     <title>午餐結算 - 企業總表版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <style>
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
@@ -19,7 +21,6 @@
         }
         .hidden-view { display: none !important; }
         
-        /* 視覺優化：高透視感調整 */
         .glass-panel { background: rgba(255, 252, 248, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(210, 180, 160, 0.4); box-shadow: 0 8px 30px rgba(100, 70, 50, 0.08); }
         .glass-nav { background: rgba(255, 252, 248, 0.70); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(210, 180, 160, 0.4); }
         
@@ -56,128 +57,108 @@
         }
         .anim-char { animation: slide-up-char 0.5s ease-out forwards; }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
-<body class="min-h-screen flex flex-col pb-safe relative">
+<body class="p-4 pb-24 max-w-md mx-auto min-h-screen flex flex-col justify-between select-none">
 
-    <div id="loading-overlay">
+    <div id="q-animation-overlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-6" onclick="closeQAnimation()">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-orange-100 flex flex-col items-center relative animate-fade-in-up" onclick="event.stopPropagation()">
+            <div class="relative w-24 h-24 mb-4">
+                <div class="absolute inset-0 bg-orange-100 rounded-full animate-ping opacity-40"></div>
+                <img src="Gemini_Generated_Image_95bg8t95bg8t95bg.png" class="w-full h-full object-cover rounded-full border-2 border-[#C85A44] shadow-md relative z-10">
+            </div>
+            <p class="text-[#4A3E3D] font-bold text-center leading-relaxed text-lg" id="q-speech-text"></p>
+            <p class="text-white/60 text-sm mt-8 tracking-widest" style="font-size: 11px;">( 點擊任意處關閉 )</p>
+        </div>
+    </div>
+
+    <div id="global-loading" class="fixed inset-0 bg-white/80 backdrop-blur-xs z-50 flex flex-col items-center justify-center transition-all duration-300">
         <svg class="w-12 h-12 mb-4 animate-spin text-[#C85A44]" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         <h2 class="text-lg font-bold tracking-widest text-[#4A3E3D]" id="loading-text">系統連線中...</h2>
     </div>
 
-    <div id="q-animation-overlay" onclick="closeQAnimation()">
-        <div class="anim-bubble relative bg-white p-5 rounded-3xl shadow-2xl mb-6 max-w-[85%] border-[3px] border-[#C85A44]" onclick="event.stopPropagation()">
-            <p class="text-[#4A3E3D] font-bold text-center leading-relaxed text-lg" id="q-speech-text"></p>
-            <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[12px] border-l-transparent border-t-[18px] border-t-[#C85A44] border-r-[12px] border-r-transparent"></div>
-            <div class="absolute -bottom-[11px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[9px] border-l-transparent border-t-[14px] border-t-white border-r-[9px] border-r-transparent z-10"></div>
-        </div>
-        <div class="anim-char w-40 h-40" onclick="event.stopPropagation()">
-            <img src="Gemini_Generated_Image_95bg8t95bg8t95bg.png" alt="小幫手" class="w-full h-full rounded-full shadow-[0_10px_25px_rgba(0,0,0,0.5)] border-4 border-white object-cover bg-white">
-        </div>
-        <p class="text-white/60 text-sm mt-8 tracking-widest anim-char" style="animation-delay: 0.5s;">( 點擊任意處關閉 )</p>
-    </div>
+    <main class="flex-grow">
+        <div id="view-pos" class="view-section space-y-4">
+            <div class="flex justify-between items-center mb-1">
+                <input type="date" id="order-date" onchange="changeDate()" class="text-sm font-medium text-[#C85A44] bg-white/60 px-3 py-1.5 rounded-full border-none outline-none shadow-sm focus:ring-2 focus:ring-orange-300 transition">
+            </div>
 
-    <header class="theme-gradient sticky top-0 z-20 shadow-lg rounded-b-2xl opacity-95">
-        <div class="px-6 py-5 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-white tracking-widest flex items-center">
-                LUNCH POS
-            </h1>
-            <input type="date" id="order-date" onchange="changeDate()" class="text-sm font-medium text-[#C85A44] bg-white/60 px-3 py-1.5 rounded-full border-none outline-none shadow-sm focus:ring-2 focus:ring-orange-300 transition">
-        </div>
-    </header>
-
-    <main class="w-full flex-grow relative px-4 mt-6">
-
-        <div id="view-pos" class="space-y-6">
             <div class="relative">
                 <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20"></select>
                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-[#C85A44]"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
             </div>
 
-            <div class="glass-panel p-5 rounded-3xl">
-                <div class="mb-5">
-                    <div class="flex justify-between items-center mb-3">
-                        <h2 class="theme-text font-bold text-sm tracking-wide flex items-center">
-                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                            選擇對象 <span class="text-xs text-stone-400 font-normal ml-2">(可多選批量點餐)</span>
-                        </h2>
-                        <button id="select-all-remaining-btn" onclick="selectAllRemainingEmployees()" class="text-xs bg-orange-100 hover:bg-orange-200 text-[#C85A44] font-bold px-3 py-1.5 rounded-full transition shadow-xs">
-                            一鍵全選剩餘
-                        </button>
-                    </div>
-                    <div id="pending-employees" class="grid grid-cols-3 gap-2.5"></div>
+            <div class="glass-panel rounded-3xl p-4">
+                <div class="flex items-center text-[#C85A44] font-bold text-sm mb-3">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    選擇對象 <span class="text-xs text-stone-400 font-normal ml-2">(可多選批量點餐)</span>
                 </div>
-
-                <div class="pt-4 border-t border-orange-100/50">
-                    <h2 class="theme-text font-bold mb-3 text-sm tracking-wide flex items-center">
-                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
-                        選擇餐點
-                    </h2>
-                    <button id="skip-btn" onclick="toggleCartItem('未點餐', 0)" class="btn-active w-full py-3.5 mb-3 bg-white/40 border border-stone-200/40 rounded-xl text-center flex justify-center items-center text-stone-500 font-medium hover:bg-stone-100/60 transition shadow-sm">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
-                        本日跳過 (未點餐)
-                    </button>
-                    <div id="current-menu" class="grid grid-cols-2 gap-2.5"></div>
-                </div>
+                <div id="pending-employees" class="grid grid-cols-3 gap-2.5"></div>
             </div>
 
-            <div class="theme-gradient p-5 rounded-3xl shadow-[0_10px_25px_rgba(200,90,68,0.25)] sticky bottom-4 z-10 opacity-95">
-                <div id="split-toggle-container" class="hidden mb-3 pb-3 border-b border-white/20">
-                    <label class="flex items-center space-x-2 text-white text-sm font-medium cursor-pointer">
-                        <input type="checkbox" id="is-shared-order" onchange="updateCartUI()" class="rounded shadow-sm">
-                        <span>這單為共食 (平分總金額)</span>
-                    </label>
+            <div class="glass-panel rounded-3xl p-4">
+                <div class="flex items-center text-[#C85A44] font-bold text-sm mb-3 justify-between">
+                    <div class="flex items-center">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                        選擇餐點
+                    </div>
+                    <div class="flex items-center space-x-3 bg-white/50 px-3 py-1 rounded-full border border-orange-100/50">
+                        <label class="flex items-center text-xs font-bold text-stone-600 cursor-pointer">
+                            <input type="checkbox" id="cart-is-shared" onchange="updateCartInfo()" class="mr-1.5 rounded"> 👥 共食
+                        </label>
+                    </div>
                 </div>
-                <div class="flex justify-between items-end mb-2">
-                    <div id="split-info" class="text-xs text-orange-100 font-medium h-4"></div>
-                    <div class="text-right">
+
+                <button id="skip-btn" onclick="toggleCartItem('未點餐', 0)" class="btn-active w-full py-3.5 mb-3 bg-white/40 border border-stone-200/40 rounded-xl text-center flex justify-center items-center text-stone-500 font-medium hover:bg-stone-100/60 transition shadow-sm">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                    今日此人未點餐 (不扣款)
+                </button>
+
+                <div id="current-menu" class="grid grid-cols-2 gap-2.5"></div>
+                
+                <div id="cart-preview-box" class="mt-4 bg-gradient-to-br from-[#D97055] to-[#C85A44] rounded-2xl p-4 text-white shadow-md hidden animate-fade-in">
+                    <div id="cart-items-list" class="space-y-1.5 text-sm font-medium border-b border-white/20 pb-2.5 mb-2.5"></div>
+                    <div class="flex justify-between items-center">
                         <span class="text-xs text-orange-100 mr-1">合計</span>
                         <span id="cart-total" class="text-2xl font-black text-white">$0</span>
                     </div>
+                    <button onclick="submitCart()" id="submit-btn" class="btn-active w-full mt-3 py-3.5 rounded-xl font-bold tracking-widest transition bg-white/20 text-orange-50">
+                        確認寫入點餐紀錄
+                    </button>
                 </div>
-                <button onclick="submitCart()" id="submit-btn" class="btn-active w-full mt-3 py-3.5 rounded-xl font-bold tracking-widest transition bg-white/20 text-orange-50 pointer-events-none">
-                    請選擇餐點
-                </button>
             </div>
 
-            <div class="pt-2">
-                <h2 class="theme-text font-bold mb-3 text-sm tracking-wide flex items-center justify-between px-1">
-                    <span>處理明細 (<span id="display-selected-date" class="text-stone-500">今日</span>)</span>
-                </h2>
+            <div>
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <h3 class="text-sm font-bold text-[#4A3E3D] flex items-center">
+                        <span>處理明細 (<span id="display-selected-date" class="text-stone-500">今日</span>)</span>
+                    </h3>
+                    <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
+                </div>
                 <div id="completed-orders" class="space-y-2 mb-6"></div>
+                <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
                 
-                <div class="glass-panel p-5 rounded-3xl">
-                    <div class="flex justify-between items-center mb-4 border-b border-orange-100/50 pb-3">
-                        <span class="text-sm theme-text font-bold flex items-center">
-                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            店家叫餐清單
-                        </span>
-                        <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
-                    </div>
-                    <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
-                    <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold">
+                <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold hidden">
+                    <div class="flex items-center justify-between w-full cursor-pointer bg-white/50 hover:bg-white/70 border border-orange-100/50 p-3 rounded-xl transition backdrop-blur-sm" onclick="showQAnimation(true)">
+                        <span class="text-xs text-[#C85A44] font-bold" id="reminder-text">💡 溫馨提醒：點餐已全部處理完畢！</span>
+                        <span class="bg-[#C85A44] text-white px-2.5 py-1 rounded-lg text-[10px] animate-pulse whitespace-nowrap shadow-sm">✨ 呼叫小幫手</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="view-ledger" class="hidden-view space-y-5">
-            
+        <div id="view-ledger" class="view-section hidden-view space-y-4">
             <div class="bg-gradient-to-br from-orange-50/60 to-amber-50/60 p-5 rounded-3xl flex justify-between items-center border border-orange-100/40 shadow-sm opacity-90 backdrop-blur-sm relative">
-                <div class="flex flex-col relative z-10">
-                    <span class="text-[11px] text-orange-600 font-bold mb-1 tracking-wider flex items-center">
-                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        總務金庫對帳
-                    </span>
-                    <span class="text-stone-500 text-xs">應有現金總額 (不分享)</span>
+                <div>
+                    <span class="text-stone-500 text-xs">應有現金總額</span>
+                    <div id="admin-cash-on-hand" class="text-2xl font-black text-orange-500">$0</div>
                 </div>
-                <div class="text-right relative z-10">
-                    <span id="admin-cash-on-hand" class="text-2xl font-black text-orange-500">$0</span>
+                <div class="text-right">
+                    <span class="text-stone-400 text-[10px] block">系統核心架構 v3.8 Clean</span>
+                    <span class="text-stone-400 text-[10px] block">月報結算精準對齊版</span>
                 </div>
             </div>
 
-            <div class="flex space-x-3 mb-6">
+            <div class="flex space-x-3">
                 <button onclick="shareToLine()" class="btn-active w-1/2 bg-white/70 text-[#C85A44] border border-orange-200 py-3.5 rounded-2xl font-bold shadow-sm flex flex-col justify-center items-center hover:bg-orange-50/80 transition">
                     <svg class="w-6 h-6 mb-1 text-[#06C755]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 10.3c0-4.3-4.2-7.8-9.4-7.8-5.2 0-9.4 3.5-9.4 7.8 0 3.8 2.6 7 6.3 7.6l1.3.4s-.4 1.4-.4 1.6c-.1.5.3.8.3.8l3.6-2.4 1.3-.9c1.9.1 6.4-2.7 6.4-7.1z"/></svg>
                     <span class="text-xs">分享本日 LINE</span>
@@ -188,11 +169,11 @@
                 </button>
             </div>
 
-            <div class="glass-panel p-5 rounded-3xl">
-                <h3 class="theme-text font-bold text-sm mb-3 flex items-center">
+            <div class="glass-panel rounded-3xl p-4 space-y-3">
+                <div class="flex items-center text-[#C85A44] font-bold text-sm">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                    新增收款作業
-                </h3>
+                    同仁繳交餐費隨手登錄
+                </div>
                 <div class="flex space-x-2">
                     <select id="topup-emp" class="flex-grow bg-white/60 border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700"></select>
                     <input type="number" step="0.1" id="topup-amount" placeholder="金額" class="w-24 bg-white/60 border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700">
@@ -200,18 +181,26 @@
                 </div>
             </div>
 
-            <div class="glass-panel rounded-3xl overflow-hidden mt-6">
+            <div class="glass-panel rounded-3xl overflow-hidden shadow-xs">
                 <div class="bg-orange-50/60 px-4 py-3 border-b border-orange-100/40">
                     <h3 class="text-xs font-bold theme-text">全體員工餘額表</h3>
                 </div>
-                <table class="w-full text-left border-collapse">
-                    <tbody id="ledger-table" class="divide-y divide-orange-100/30"></tbody>
-                </table>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-stone-50/40 border-b border-orange-100/20 text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+                                <th class="p-4">員工姓名</th>
+                                <th class="p-4 text-right">剩餘可用餘額</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledger-table" class="divide-y divide-orange-100/30"></tbody>
+                    </table>
+                </div>
             </div>
 
             <details class="group bg-white/60 rounded-2xl border border-orange-100/50 shadow-sm overflow-hidden mt-6 transition-all duration-300 backdrop-blur-sm">
-                <summary class="flex justify-between items-center font-bold cursor-pointer list-none p-4 text-[#4A3E3D] outline-none">
-                    <span class="flex items-center text-sm relative z-10">
+                <summary class="list-none flex items-center justify-between p-4 text-xs font-bold text-stone-600 cursor-pointer select-none">
+                    <span class="flex items-center">
                         <svg class="w-4 h-4 mr-2 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                         📝 收款歷史紀錄查閱 <span class="text-[10px] text-stone-400 font-normal ml-2">(點擊展開)</span>
                     </span>
@@ -221,48 +210,45 @@
             </details>
         </div>
 
-        <div id="view-settings" class="hidden-view space-y-6">
-            <div class="glass-panel p-5 rounded-3xl">
-                <div class="flex justify-between items-center mb-5">
-                    <h2 class="font-bold theme-text text-sm flex items-center">
+        <div id="view-settings" class="view-section hidden-view space-y-6">
+            <div class="glass-panel rounded-3xl p-4">
+                <div class="flex justify-between items-center mb-4 border-b border-orange-100/30 pb-3">
+                    <h3 class="text-sm font-bold text-[#4A3E3D] flex items-center">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         員工名單管理 <span class="text-xs text-stone-400 font-normal ml-2">(可調整排序)</span>
-                    </h2>
+                    </h3>
                     <button onclick="addEmployee()" class="text-xs text-[#C85A44] bg-orange-100 hover:bg-orange-200 px-3 py-1.5 rounded-full transition">+ 新增</button>
                 </div>
                 <div id="setting-employees" class="space-y-2.5"></div>
             </div>
 
-            <div class="glass-panel p-5 rounded-3xl">
-                <div class="flex justify-between items-center mb-5">
-                    <h2 class="font-bold theme-text text-sm flex items-center">
+            <div class="glass-panel rounded-3xl p-4">
+                <div class="flex justify-between items-center mb-4 border-b border-orange-100/30 pb-3">
+                    <h3 class="text-sm font-bold text-[#4A3E3D] flex items-center">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                        菜單庫設定
-                    </h2>
+                        店家與菜單設定
+                    </h3>
                     <button onclick="addStore()" class="text-xs text-[#C85A44] bg-orange-100 hover:bg-orange-200 px-3 py-1.5 rounded-full transition">+ 新增店家</button>
                 </div>
                 <div id="setting-stores" class="space-y-4"></div>
             </div>
         </div>
-
     </main>
 
-    <div class="fixed bottom-6 left-0 w-full px-5 z-50">
-        <nav class="glass-nav rounded-2xl flex justify-around p-2.5 shadow-[0_8px_30px_rgba(100,70,50,0.12)] border border-orange-50/50">
-            <button onclick="switchTab('view-pos')" id="tab-pos" class="flex flex-col items-center p-2 w-1/3 nav-active transition rounded-xl relative z-10">
-                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                <span class="text-[10px] font-bold tracking-wider relative z-10">點餐</span>
-            </button>
-            <button onclick="switchTab('view-ledger')" id="tab-ledger" class="flex flex-col items-center p-2 w-1/3 nav-inactive transition rounded-xl relative z-10">
-                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                <span class="text-[10px] font-bold tracking-wider relative z-10">存摺與報表</span>
-            </button>
-            <button onclick="switchTab('view-settings')" id="tab-settings" class="flex flex-col items-center p-2 w-1/3 nav-inactive transition rounded-xl relative z-10">
-                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                <span class="text-[10px] font-bold tracking-wider relative z-10">設定</span>
-            </button>
-        </nav>
-    </div>
+    <nav class="fixed bottom-4 left-4 right-4 glass-nav rounded-2xl flex justify-around p-2.5 shadow-[0_8px_30px_rgba(100,70,50,0.12)] border border-orange-50/50 z-40">
+        <button onclick="switchTab('view-pos')" id="tab-pos" class="flex flex-col items-center p-2 w-1/3 nav-active transition rounded-xl relative z-10">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+            <span class="text-[10px] font-bold tracking-wider relative z-10">點餐</span>
+        </button>
+        <button onclick="switchTab('view-ledger')" id="tab-ledger" class="flex flex-col items-center p-2 w-1/3 nav-inactive transition rounded-xl relative z-10">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+            <span class="text-[10px] font-bold tracking-wider relative z-10">存摺與報表</span>
+        </button>
+        <button onclick="switchTab('view-settings')" id="tab-settings" class="flex flex-col items-center p-2 w-1/3 nav-inactive transition rounded-xl relative z-10">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <span class="text-[10px] font-bold tracking-wider relative z-10">設定</span>
+        </button>
+    </nav>
 
     <script>
         const firebaseConfig = {
@@ -274,706 +260,546 @@
           appId: "1:783131275726:web:a0942ad1560b82e1783b9f"
         };
         firebase.initializeApp(firebaseConfig);
-        const fdb = firebase.firestore();
+        const db = firebase.firestore();
 
         let appData = { employees: [], stores: [], orders: [], topups: [] };
-        let selectedEmps = []; currentCart = []; selectedDate = ""; 
+        let selectedDate = new Date().toISOString().split('T')[0];
+        let currentSelectedStoreId = '';
+        let selectedEmployeesForCart = new Set();
+        let currentCartItems = [];
+        let hasShownHelperToday = false;
 
-        function cleanStr(val) {
-            if (val === undefined || val === null) return "";
-            return String(val).replace(/[\t h]/g, '').trim();
+        function formatPrice(num) {
+            if (num === undefined || num === null || isNaN(num)) return "0";
+            return num % 1 === 0 ? num.toString() : parseFloat(num.toFixed(1)).toString();
         }
 
-        function getLocalISODate() {
-            const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-            return d.toISOString().split('T')[0];
-        }
-
-        window.onload = async () => {
-            selectedDate = getLocalISODate();
+        async function init() {
+            // Correctly set timezone to local for initialization
+            const d = new Date();
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            selectedDate = d.toISOString().split('T')[0];
+            
             document.getElementById('order-date').value = selectedDate;
-            document.getElementById('display-selected-date').innerText = selectedDate.substring(5);
+            document.getElementById('display-selected-date').innerText = selectedDate.replace(/-/g, '/');
             
-            try {
-                await syncSettingsFromCloud(); 
-                await syncOrdersFromCloud(); 
-                await syncTopupsFromCloud();  
-                document.getElementById('loading-overlay').style.display = 'none';
-                initStoreSelector();
-                renderAll();
-            } catch(e) { 
-                console.error(e);
-                alert("連線失敗或資料載入錯誤！請檢查主控台。"); 
-            }
-        };
-
-        async function syncSettingsFromCloud() {
-            const docRef = fdb.collection("System").doc("Settings");
-            const docSnap = await docRef.get();
-            if (docSnap.exists) {
-                let data = docSnap.data();
-                appData.employees = (data.employees || []).map(e => ({ name: cleanStr(e.name), balance: parseFloat(e.balance) || 0 }));
-                appData.stores = (data.stores || []).map(s => ({
-                    id: s.id, 
-                    name: cleanStr(s.name),
-                    menu: (s.menu || []).map(m => ({ name: cleanStr(m.name), price: parseFloat(m.price) || 0 }))
-                }));
-            } else {
-                appData.employees = [ { name: '王小明', balance: 0 }, { name: '阿迪', balance: 0 } ];
-                appData.stores = [ { id: 's1', name: '測試便當店', menu: [{name: '排骨飯', price: 100}] } ];
-                await docRef.set({ employees: appData.employees, stores: appData.stores });
-            }
-        }
-
-        async function syncOrdersFromCloud() {
-            const snapshot = await fdb.collection("Orders").where("date", "==", selectedDate).get();
-            appData.orders = snapshot.docs.map(doc => {
-                let d = doc.data();
-                return {
-                    id: doc.id,
-                    date: d.date,
-                    empName: cleanStr(d.empName),
-                    food: cleanStr(d.food),
-                    price: parseFloat(d.price) || 0,
-                    shared: parseInt(d.shared) || 1,
-                    items: d.items || []
-                };
-            });
-        }
-
-        async function syncTopupsFromCloud() {
-            const snapshot = await fdb.collection("Topups").orderBy("timestamp", "desc").limit(50).get();
-            appData.topups = snapshot.docs.map(doc => {
-                let d = doc.data();
-                return {
-                    id: doc.id,
-                    date: d.date,
-                    time: d.time,
-                    empName: cleanStr(d.empName),
-                    amount: parseFloat(d.amount) || 0
-                };
-            });
-        }
-
-        async function saveSettingsToCloud() {
-            let cleanEmployees = appData.employees.map(e => ({ name: cleanStr(e.name), balance: parseFloat(e.balance) || 0 }));
-            let cleanStores = appData.stores.map(s => ({
-                id: s.id,
-                name: cleanStr(s.name),
-                menu: s.menu.map(m => ({ name: cleanStr(m.name), price: parseFloat(m.price) || 0 }))
-            }));
-            await fdb.collection("System").doc("Settings").set({
-                employees: cleanEmployees, stores: cleanStores
-            });
-        }
-
-        async function changeDate() {
-            document.getElementById('loading-overlay').style.display = 'flex';
-            selectedDate = document.getElementById('order-date').value;
-            document.getElementById('display-selected-date').innerText = selectedDate.substring(5);
-            selectedEmps = []; currentCart = [];
-            await syncOrdersFromCloud(); 
-            document.getElementById('loading-overlay').style.display = 'none';
-            renderAll();
-        }
-
-        function switchTab(viewId) {
-            document.querySelectorAll('main > div').forEach(div => { if(div.id.startsWith('view-')) div.classList.add('hidden-view'); });
-            document.getElementById(viewId).classList.remove('hidden-view');
-            document.querySelectorAll('nav button').forEach(btn => { btn.classList.remove('nav-active'); btn.classList.add('nav-inactive'); });
-            document.getElementById('tab-' + viewId.replace('view-', '')).classList.remove('nav-inactive');
-            document.getElementById('tab-' + viewId.replace('view-', '')).classList.add('nav-active');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function renderAll() { renderPOS(); renderLedger(); renderSettings(); }
-
-        function initStoreSelector() {
-            const selector = document.getElementById('store-selector');
-            selector.innerHTML = '';
-            appData.stores.forEach(store => { selector.innerHTML += `<option value="${store.id}">選擇店家：${store.name}</option>`; });
-        }
-        function changeStore() { selectedEmps = []; currentCart = []; renderPOS(); }
-        
-        function toggleEmp(empName) {
-            empName = cleanStr(empName);
-            if (selectedEmps.includes(empName)) selectedEmps = selectedEmps.filter(n => n !== empName);
-            else selectedEmps.push(empName);
-            updateCartUI(); renderPOSLeft();
-        }
-
-        /* 【全新功能】：一鍵選取所有今天還沒有任何點餐紀錄的剩餘同事 */
-        function selectAllRemainingEmployees() {
-            const orderedEmpNames = appData.orders.map(o => o.empName);
-            let remainingEmps = [];
-            
-            appData.employees.forEach(emp => {
-                let nameClean = cleanStr(emp.name);
-                if (!orderedEmpNames.includes(nameClean)) {
-                    remainingEmps.push(nameClean);
+            db.collection("System").doc("Settings").onSnapshot(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    appData.employees = data.employees || [];
+                    appData.stores = data.stores || [];
+                    if(!currentSelectedStoreId && appData.stores.length > 0) currentSelectedStoreId = appData.stores[0].id;
+                    renderStoreSelector();
+                    renderSettings();
+                    loadDailyOrdersAndTopups();
+                } else {
+                    appData.employees = [];
+                    appData.stores = [];
+                    db.collection("System").doc("Settings").set({ employees: [], stores: [] });
+                    document.getElementById('global-loading').classList.add('hidden');
                 }
             });
+        }
 
-            if (remainingEmps.length === 0) {
-                alert("🎉 所有同事都已經處理完畢囉，沒有剩餘人員！");
-                return;
+        function loadDailyOrdersAndTopups() {
+            db.collection("Orders").where("date", "==", selectedDate).onSnapshot(snapshot => {
+                appData.orders = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                db.collection("Topups").orderBy("timestamp", "desc").onSnapshot(tSnapshot => {
+                    appData.topups = tSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                    renderAll();
+                    document.getElementById('global-loading').classList.add('hidden');
+                });
+            });
+        }
+
+        function renderStoreSelector() {
+            const selector = document.getElementById('store-selector');
+            selector.innerHTML = '';
+            appData.stores.forEach(store => {
+                selector.innerHTML += `<option value="${store.id}">選擇店家：${store.name}</option>`;
+            });
+            if (currentSelectedStoreId && appData.stores.some(s => s.id === currentSelectedStoreId)) {
+                selector.value = currentSelectedStoreId;
+            } else if (appData.stores.length > 0) {
+                selector.value = appData.stores[0].id;
+                currentSelectedStoreId = selector.value;
             }
+        }
 
-            // 直接將所有未點餐的名單塞入選取陣列中
-            selectedEmps = remainingEmps;
-            updateCartUI(); 
-            renderPOSLeft();
+        function changeDate() {
+            document.getElementById('global-loading').classList.remove('hidden');
+            selectedDate = document.getElementById('order-date').value;
+            document.getElementById('display-selected-date').innerText = selectedDate.replace(/-/g, '/');
+            selectedEmployeesForCart.clear();
+            currentCartItems = [];
+            hasShownHelperToday = false; 
+            updateCartInfo();
+            loadDailyOrdersAndTopups();
+        }
+
+        function changeStore() {
+            currentSelectedStoreId = document.getElementById('store-selector').value;
+            renderMenu();
+        }
+
+        function renderAll() {
+            renderPendingEmployees();
+            renderMenu();
+            renderCompletedOrders();
+            renderLedger();
+            renderTopupSelect();
+            renderTopupHistory();
+            checkAutoHelper(); 
+        }
+
+        function renderPendingEmployees() {
+            const empContainer = document.getElementById('pending-employees');
+            empContainer.innerHTML = '';
+            
+            const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
+            const pendingEmps = appData.employees.filter(emp => !orderedEmpNames.has(emp.name));
+
+            pendingEmps.forEach(emp => {
+                const isSelected = selectedEmployeesForCart.has(emp.name);
+                const btnClass = isSelected ? 'emp-selected' : 'bg-white/60 text-[#4A3E3D] border-orange-100 hover:border-orange-300 backdrop-blur-xs';
+                empContainer.innerHTML += `<button onclick="toggleEmp('${emp.name}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm ${btnClass} truncate px-1 shadow-sm">${emp.name}</button>`;
+            });
+
+            if (pendingEmps.length === 0) {
+                empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>';
+            }
+        }
+
+        function toggleEmp(empName) {
+            if (selectedEmployeesForCart.has(empName)) {
+                selectedEmployeesForCart.delete(empName);
+            } else {
+                selectedEmployeesForCart.add(empName);
+            }
+            updateCartInfo();
+            renderPendingEmployees();
+        }
+
+        function renderMenu() {
+            const menuContainer = document.getElementById('current-menu');
+            menuContainer.innerHTML = '';
+            const store = appData.stores.find(s => s.id === currentSelectedStoreId);
+            if (!store || !store.menu) return;
+
+            store.menu.forEach(item => {
+                const count = currentCartItems.filter(i => i.name === item.name).length;
+                const isSelected = count > 0;
+                const activeClass = isSelected ? 'border-[#C85A44] bg-orange-50/40' : 'border-stone-200/40 bg-white/50';
+                const titleClass = isSelected ? 'theme-text' : 'text-[#4A3E3D]';
+                const priceClass = 'theme-text';
+
+                menuContainer.innerHTML += `
+                    <button onclick="toggleCartItem('${item.name}', ${item.price})" class="btn-active p-3.5 rounded-xl border text-left flex flex-col justify-between transition relative overflow-hidden h-[76px] shadow-xs backdrop-blur-xs ${activeClass}">
+                        ${count > 0 ? `<span class="absolute top-0 right-0 bg-[#C85A44] text-white text-[10px] font-black px-2 py-0.5 rounded-bl-xl shadow-xs">x${count}</span>` : ''}
+                        <span class="font-bold text-sm truncate ${titleClass}">${item.name}</span>
+                        <span class="font-bold mt-1 text-sm ${priceClass}">$${formatPrice(item.price)}</span>
+                    </button>`;
+            });
         }
 
         function toggleCartItem(foodName, price) {
-            foodName = cleanStr(foodName);
-            price = parseFloat(price) || 0;
             if (foodName === '未點餐') {
-                if (currentCart.some(i => i.name === '未點餐')) {
-                    currentCart = []; 
-                } else {
-                    currentCart = [{ name: '未點餐', price: 0 }]; 
+                if (selectedEmployeesForCart.size === 0) {
+                    alert('請先在上方選擇要登記「未點餐」的同仁！');
+                    return;
                 }
-            } else {
-                currentCart = currentCart.filter(i => i.name !== '未點餐');
-                const index = currentCart.findIndex(item => item.name === foodName);
-                if (index > -1) {
-                    currentCart.splice(index, 1);
-                } else {
-                    currentCart.push({ name: foodName, price: price });
-                }
+                currentCartItems = [{ name: '未點餐', price: 0 }];
+                submitCart();
+                return;
             }
-            updateCartUI(); 
-            updateMenuUI();
+
+            if (selectedEmployeesForCart.size === 0) {
+                alert('請先在上方選擇點餐對象，再點選餐點項目！');
+                return;
+            }
+
+            const index = currentCartItems.findIndex(i => i.name === foodName);
+            if (index > -1) {
+                currentCartItems.splice(index, 1);
+            } else {
+                currentCartItems.push({ name: foodName, price: price });
+            }
+            updateCartInfo();
+            renderMenu();
         }
 
-        function formatMoney(num) {
-            let val = parseFloat(num) || 0;
-            if (val % 1 === 0) return String(val); 
-            return String(val.toFixed(1));        
-        }
+        function updateCartInfo() {
+            const previewBox = document.getElementById('cart-preview-box');
+            const itemsList = document.getElementById('cart-items-list');
+            const totalSpan = document.getElementById('cart-total');
+            const isShared = document.getElementById('cart-is-shared').checked;
 
-        function updateCartUI() {
-            const btn = document.getElementById('submit-btn');
-            const splitInfo = document.getElementById('split-info');
-            const toggleDiv = document.getElementById('split-toggle-container');
-            const isShared = document.getElementById('is-shared-order').checked;
+            if (currentCartItems.length === 0 || selectedEmployeesForCart.size === 0) {
+                previewBox.classList.add('hidden');
+                return;
+            }
+            previewBox.classList.remove('hidden');
+
+            let cartBaseTotal = currentCartItems.reduce((sum, item) => sum + item.price, 0);
+            let perPersonAmount = isShared ? (cartBaseTotal / selectedEmployeesForCart.size) : cartBaseTotal;
+
+            itemsList.innerHTML = `
+                <div class="flex justify-between items-center text-xs text-orange-100 font-bold bg-white/10 px-2 py-1 rounded-md mb-1.5">
+                    <span>對象: ${Array.from(selectedEmployeesForCart).join(', ')}</span>
+                    <span>共 ${selectedEmployeesForCart.size} 人</span>
+                </div>
+            `;
             
-            if (selectedEmps.length > 1) toggleDiv.classList.remove('hidden');
-            else { toggleDiv.classList.add('hidden'); document.getElementById('is-shared-order').checked = false; }
+            currentCartItems.forEach(item => {
+                itemsList.innerHTML += `<div class="flex justify-between"><span>• ${item.name}</span><span>$${formatPrice(item.price)}</span></div>`;
+            });
 
-            let cartBaseTotal = currentCart.reduce((sum, item) => sum + item.price, 0);
-            let finalGrandTotal = 0;
-
-            if (selectedEmps.length > 0 && currentCart.length > 0) {
-                if (selectedEmps.length > 1) {
-                    if (isShared) {
-                        finalGrandTotal = cartBaseTotal;
-                        let perPerson = parseFloat((cartBaseTotal / selectedEmps.length).toFixed(1));
-                        splitInfo.innerText = `☑️ 共食模式：總計 $${formatMoney(cartBaseTotal)}，每人扣 $${formatMoney(perPerson)}`;
-                    } else {
-                        finalGrandTotal = cartBaseTotal * selectedEmps.length;
-                        splitInfo.innerText = `📦 獨立叫餐：共 ${selectedEmps.length} 份，每人扣 $${formatMoney(cartBaseTotal)}`;
-                    }
-                } else {
-                    finalGrandTotal = cartBaseTotal;
-                    if(cartBaseTotal === 0) splitInfo.innerText = `狀態：不叫餐`;
-                    else splitInfo.innerText = `扣款名單：${selectedEmps[0]}`;
-                }
-                
-                btn.classList.remove('bg-white/20', 'text-orange-50', 'pointer-events-none');
-                btn.classList.add('bg-white', 'text-[#C85A44]', 'shadow-lg');
-                btn.innerText = `確認送出`;
+            if (isShared) {
+                totalSpan.innerHTML = `$${formatPrice(perPersonAmount)} <span class="text-xs font-normal text-orange-100">/人 (👥共食拆帳)</span>`;
             } else {
-                splitInfo.innerText = "";
-                btn.classList.add('bg-white/20', 'text-orange-50', 'pointer-events-none');
-                btn.classList.remove('bg-white', 'text-[#C85A44]', 'shadow-lg');
-                btn.innerText = `請選擇餐點`;
-            }
-            document.getElementById('cart-total').innerText = `$${formatMoney(finalGrandTotal)}`;
-        }
-
-        function updateMenuUI() {
-            let skipBtn = document.getElementById('skip-btn');
-            let isSkipSelected = currentCart.some(i => i.name === '未點餐');
-            if (isSkipSelected) {
-                skipBtn.className = "btn-active w-full py-3.5 mb-3 bg-[#C85A44] border border-[#C85A44] rounded-xl text-center flex justify-center items-center text-white font-medium shadow-md transition";
-            } else {
-                skipBtn.className = "btn-active w-full py-3.5 mb-3 bg-white/40 border border-stone-200/40 rounded-xl text-center flex justify-center items-center text-stone-500 font-medium hover:bg-stone-100/60 transition shadow-sm";
-            }
-
-            const storeId = document.getElementById('store-selector').value;
-            const currentStore = appData.stores.find(s => s.id === storeId);
-            const menuContainer = document.getElementById('current-menu');
-            menuContainer.innerHTML = '';
-            
-            if(currentStore) {
-                currentStore.menu.forEach(item => {
-                    let isSelected = currentCart.some(c => c.name === item.name);
-                    let btnClass = isSelected 
-                        ? 'bg-gradient-to-br from-[#D97055] to-[#C85A44] border-transparent shadow-md text-white scale-[0.98]' 
-                        : 'bg-white/40 border-orange-100 hover:border-orange-300 shadow-sm';
-                    let titleClass = isSelected ? 'text-white' : 'text-[#4A3E3D]';
-                    let priceClass = isSelected ? 'text-orange-100' : 'theme-text';
-
-                    menuContainer.innerHTML += `
-                        <button onclick="toggleCartItem('${item.name}', ${item.price})" class="btn-active p-3.5 rounded-xl transition-all duration-200 text-left flex flex-col justify-between border ${btnClass}">
-                            <span class="font-bold text-sm truncate ${titleClass}">${item.name}</span>
-                            <span class="font-bold mt-1 text-sm ${priceClass}">$${formatMoney(item.price)}</span>
-                        </button>`;
-                });
+                totalSpan.innerHTML = `$${formatPrice(cartBaseTotal)} <span class="text-xs font-normal text-orange-100">/人</span>`;
             }
         }
 
         async function submitCart() {
-            let isShared = document.getElementById('is-shared-order').checked && selectedEmps.length > 1;
-            let cartBaseTotal = currentCart.reduce((sum, item) => sum + item.price, 0);
-            let perPersonAmount = isShared ? parseFloat((cartBaseTotal / selectedEmps.length).toFixed(1)) : cartBaseTotal;
-            let foodNames = currentCart.map(item => item.name).join(' + ');
-            let note = isShared ? ' (共食)' : '';
-            let sharedCount = isShared ? selectedEmps.length : 1;
-            
-            let backupEmps = [...selectedEmps];
-            let backupCart = JSON.parse(JSON.stringify(currentCart));
+            if (selectedEmployeesForCart.size === 0 || currentCartItems.length === 0) return;
+            document.getElementById('global-loading').classList.remove('hidden');
 
-            backupEmps.forEach(empName => {
-                let tempId = 'temp_' + Date.now() + Math.random(); 
-                appData.orders.push({ id: tempId, date: selectedDate, empName: cleanStr(empName), food: cleanStr(foodNames + note), price: perPersonAmount, items: backupCart, shared: sharedCount });
-                let emp = appData.employees.find(e => e.name === empName);
-                if(emp) emp.balance -= perPersonAmount;
-            });
-            selectedEmps = []; currentCart = []; renderAll();
+            const isShared = document.getElementById('cart-is-shared').checked;
+            let cartBaseTotal = currentCartItems.reduce((sum, item) => sum + item.price, 0);
+            let perPersonAmount = isShared ? (cartBaseTotal / selectedEmployeesForCart.size) : cartBaseTotal;
 
-            try {
-                let writePromises = backupEmps.map(empName => {
-                    return fdb.collection("Orders").add({ date: selectedDate, empName: cleanStr(empName), food: cleanStr(foodNames + note), price: perPersonAmount, items: backupCart, shared: sharedCount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+            const batch = db.batch();
+            const foodNames = currentCartItems.map(i => i.name).join('+');
+            const sharedCount = isShared ? selectedEmployeesForCart.size : 1;
+
+            for (let empName of selectedEmployeesForCart) {
+                const orderRef = db.collection("Orders").doc();
+                batch.set(orderRef, {
+                    date: selectedDate,
+                    empName: empName,
+                    food: foodNames,
+                    price: perPersonAmount,
+                    shared: sharedCount,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                await Promise.all(writePromises); 
-                await saveSettingsToCloud();      
-                await syncOrdersFromCloud(); 
-                
-                const orderedEmpNames = appData.orders.map(o => o.empName);
-                let allDone = appData.employees.every(emp => orderedEmpNames.includes(emp.name));
-                if (allDone && appData.employees.length > 0) {
-                    showQAnimation();
+
+                const empIdx = appData.employees.findIndex(e => e.name === empName);
+                if (empIdx > -1) {
+                    appData.employees[empIdx].balance -= perPersonAmount;
                 }
-                
-                renderAll();
-            } catch(e) {}
-        }
-
-        async function cancelOrder(orderId, empName, price) {
-            empName = cleanStr(empName);
-            price = parseFloat(price) || 0;
-            if(confirm(price === 0 ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${formatMoney(price)} 退回給 ${empName} 嗎？`)) {
-                const orderIndex = appData.orders.findIndex(o => o.id === orderId);
-                if(orderIndex > -1) appData.orders.splice(orderIndex, 1);
-                let emp = appData.employees.find(e => e.name === empName);
-                if(emp) emp.balance += price;
-                renderAll(); 
-                try {
-                    if(!orderId.startsWith('temp_')) await fdb.collection("Orders").doc(orderId).delete();
-                    await saveSettingsToCloud();
-                    syncOrdersFromCloud();
-                } catch(e) {}
-            }
-        }
-
-        async function submitTopup() {
-            let empName = cleanStr(document.getElementById('topup-emp').value);
-            let amount = parseFloat(document.getElementById('topup-amount').value);
-            if(!empName) return alert("請選擇收款對象");
-            if(isNaN(amount) || amount === 0) return alert("請輸入正確金額");
-
-            let today = getLocalISODate();
-            let currentMonth = today.substring(0, 7);
-            let hasTopupThisMonth = appData.topups.some(t => t.empName === empName && t.date.startsWith(currentMonth));
-            
-            if(hasTopupThisMonth) {
-                return alert(`⚠️ 防呆攔截：\n\n【${empName}】這個月已經有繳款紀錄囉！\n\n如果是金額打錯，請在下方的「收款歷史紀錄」中直接按「修正」。`);
             }
 
-            document.getElementById('loading-overlay').style.display = 'flex';
-            try {
-                let emp = appData.employees.find(e => e.name === empName);
-                if(emp) emp.balance += amount;
-                let now = new Date();
-                let timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+            const coreRef = db.collection("System").doc("Settings");
+            batch.update(coreRef, { employees: appData.employees });
 
-                await fdb.collection("Topups").add({ date: today, time: timeStr, empName: empName, amount: amount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-                await saveSettingsToCloud();
-                await syncTopupsFromCloud(); 
+            await batch.commit();
 
-                document.getElementById('topup-amount').value = ''; 
-            } catch(e) { alert("收款紀錄失敗！"); }
-            document.getElementById('loading-overlay').style.display = 'none';
+            selectedEmployeesForCart.clear();
+            currentCartItems = [];
+            document.getElementById('cart-is-shared').checked = false;
+            updateCartInfo();
             renderAll();
         }
 
-        async function editTopup(id, empName, oldAmount) {
-            empName = cleanStr(empName);
-            oldAmount = parseFloat(oldAmount) || 0;
-            let newAmountStr = prompt(`修正「${empName}」的這筆收款紀錄：\n請輸入正確的金額：`, oldAmount);
-            if (newAmountStr === null) return; 
-            
-            let newAmount = parseFloat(newAmountStr);
-            if (isNaN(newAmount) || newAmount === 0) return alert("請輸入正確的數字金額！");
-            if (newAmount === oldAmount) return; 
-
-            document.getElementById('loading-overlay').style.display = 'flex';
-            try {
-                let diff = newAmount - oldAmount;
-                let emp = appData.employees.find(e => e.name === empName);
-                if(emp) emp.balance += diff;
-
-                await fdb.collection("Topups").doc(id).update({ amount: newAmount });
-                await saveSettingsToCloud();
-                await syncTopupsFromCloud();
-            } catch(e) { alert("修正紀錄失敗，請檢查網路連線！"); }
-            document.getElementById('loading-overlay').style.display = 'none';
-            renderAll();
-        }
-
-        async function cancelTopup(id, empName, amount) {
-            empName = cleanStr(empName);
-            amount = parseFloat(amount) || 0;
-            if(confirm(`確定要刪除「${empName} 收款 $${formatMoney(amount)}」的紀錄嗎？\n(會將款項從餘額中扣回)`)) {
-                document.getElementById('loading-overlay').style.display = 'flex';
-                try {
-                    let emp = appData.employees.find(e => e.name === empName);
-                    if(emp) emp.balance -= amount;
-                    await fdb.collection("Topups").doc(id).delete();
-                    await saveSettingsToCloud();
-                    await syncTopupsFromCloud();
-                } catch(e) {}
-                document.getElementById('loading-overlay').style.display = 'none';
-                renderAll();
-            }
-        }
-
-        function showQAnimation() {
-            let validOrders = appData.orders.filter(o => o.food !== "未點餐");
-            let orderingEmps = new Set();
-            let sharedCountNum = 0;
-            validOrders.forEach(order => {
-                orderingEmps.add(order.empName);
-                if (order.shared > 1) {
-                    sharedCountNum++;
-                }
-            });
-            document.getElementById('q-speech-text').innerHTML = `
-                ✨ 辛苦啦！<br>
-                今天總共有 <span class="text-2xl text-orange-500">${orderingEmps.size}</span> 人點餐<br>
-                其中 <span class="text-xl text-orange-400">${sharedCountNum}</span> 人是共食喔！<br>
-                <span class="text-sm text-stone-400 mt-2 block">記得打電話叫便當～📞</span>
-            `;
-            document.getElementById('q-animation-overlay').style.display = 'flex';
-        }
-
-        function closeQAnimation() { document.getElementById('q-animation-overlay').style.display = 'none'; }
-
-        function renderPOSLeft() {
-            const orderedEmpNames = appData.orders.map(o => o.empName);
-            const empContainer = document.getElementById('pending-employees');
-            const selectAllBtn = document.getElementById('select-all-remaining-btn');
-            empContainer.innerHTML = '';
-            let allDone = true;
-            
-            appData.employees.forEach(emp => {
-                let nameClean = cleanStr(emp.name);
-                if (!orderedEmpNames.includes(nameClean)) {
-                    allDone = false;
-                    const isSelected = selectedEmps.includes(nameClean);
-                    const btnClass = isSelected ? 'emp-selected' : 'bg-white/60 text-[#4A3E3D] border-orange-100 hover:border-orange-300 backdrop-blur-xs';
-                    empContainer.innerHTML += `<button onclick="toggleEmp('${nameClean}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm ${btnClass} truncate px-1 shadow-sm">${nameClean}</button>`;
-                }
-            });
-            
-            if (allDone) {
-                empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>';
-                selectAllBtn.classList.add('opacity-40', 'pointer-events-none'); // 沒有剩餘的人就淡化按鈕
-            } else {
-                selectAllBtn.classList.remove('opacity-40', 'pointer-events-none');
-            }
-        }
-
-        function renderPOS() {
-            renderPOSLeft(); updateCartUI(); updateMenuUI();
-
+        function renderCompletedOrders() {
             const orderContainer = document.getElementById('completed-orders');
+            const detailContainer = document.getElementById('pos-detail-list');
             orderContainer.innerHTML = '';
-            let totalAmount = 0; let itemCounts = {}; 
-            let validOrders = appData.orders.filter(o => o.food !== "未點餐");
+            detailContainer.innerHTML = '';
+
+            let totalAmount = 0;
             let orderingEmps = new Set();
             let sharedEmps = new Set();
 
-            if(appData.orders.length === 0) orderContainer.innerHTML = '<div class="text-center py-5"><span class="text-xs text-stone-400">目前尚無明細</span></div>';
+            if (appData.orders.length === 0) {
+                orderContainer.innerHTML = '<div class="text-center py-5"><span class="text-xs text-stone-400">目前尚無明細</span></div>';
+                document.getElementById('pos-today-total').innerText = '$0';
+                document.getElementById('pos-summary-info').classList.add('hidden');
+                return;
+            }
+
+            appData.orders.sort((a, b) => (a.food === '未點餐' ? 1 : 0) - (b.food === '未點餐' ? 1 : 0));
+
+            let itemCounts = {};
 
             appData.orders.forEach(order => {
-                let eName = cleanStr(order.empName);
-                let fName = cleanStr(order.food);
-                
-                // 【核心強制校正機制】：從 items 原始單價動態精準計算，百分之百避免寫死的舊整數資料干擾
-                let oPrice = parseFloat(order.price) || 0;
-                if (order.shared > 1 && order.items && order.items.length > 0) {
-                    let baseCartTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
-                    if (baseCartTotal > 0) {
-                        oPrice = parseFloat((baseCartTotal / order.shared).toFixed(1));
-                    }
-                }
-                
-                totalAmount += oPrice;
-                if(fName !== "未點餐") {
-                    orderingEmps.add(eName);
-                    if (order.shared > 1) sharedEmps.add(eName);
+                totalAmount += order.price;
+                if (order.food !== "未點餐") {
+                    orderingEmps.add(order.empName);
+                    if (order.shared > 1) sharedEmps.add(order.empName);
 
-                    if(order.items && order.shared) {
-                        order.items.forEach(item => {
-                            if (!item) return; 
-                            let itemCleanName = cleanStr(item.name);
-                            if(itemCleanName === "未點餐" || !itemCleanName) return;
-                            if(!itemCounts[itemCleanName]) itemCounts[itemCleanName] = 0;
-                            itemCounts[itemCleanName] += (1 / order.shared); 
-                        });
-                    }
+                    const items = order.food.split('+');
+                    items.forEach(itemName => {
+                        if (!itemCounts[itemName]) itemCounts[itemName] = 0;
+                        itemCounts[itemName] += (1 / order.shared);
+                    });
                 }
-                
-                let isSkip = fName === "未點餐";
-                let foodClass = isSkip ? "text-stone-400" : "text-stone-500";
-                
+
+                const isSkip = order.food === "未點餐";
+                const cardBg = isSkip ? 'bg-stone-100/40 opacity-60' : 'bg-white/55';
+                const foodClass = isSkip ? 'text-stone-400 font-normal' : 'text-stone-500 font-medium';
+
                 orderContainer.innerHTML += `
-                    <div class="flex justify-between items-center bg-white/55 p-3.5 rounded-2xl border border-orange-50/50 shadow-sm backdrop-blur-xs">
-                        <div class="flex-grow overflow-hidden pr-3">
-                            <span class="font-bold text-[#4A3E3D] text-sm block mb-0.5">${eName}</span>
-                            <span class="text-xs ${foodClass} truncate block w-full">${fName}</span>
+                    <div class="flex justify-between items-center p-3.5 rounded-2xl border border-orange-50/50 shadow-sm backdrop-blur-xs ${cardBg}">
+                        <div class="w-2/3">
+                            <span class="font-bold text-[#4A3E3D] text-sm block mb-0.5">${order.empName}</span>
+                            <span class="text-xs ${foodClass} truncate block w-full">${order.food} ${order.shared > 1 ? `👥(共食拆 ${order.shared} 人)` : ''}</span>
                         </div>
-                        <div class="flex items-center space-x-3 flex-shrink-0 relative z-10">
-                            ${!isSkip ? `<span class="font-bold theme-text text-sm">$${formatMoney(oPrice)}</span>` : ''}
-                            <button onclick="cancelOrder('${order.id}', '${eName}', ${oPrice})" class="text-orange-500 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg text-xs font-medium transition">退單</button>
+                        <div class="flex items-center space-x-3">
+                            ${!isSkip ? `<span class="font-bold theme-text text-sm">$${formatPrice(order.price)}</span>` : ''}
+                            <button onclick="cancelOrder('${order.id}', '${order.empName}', ${order.price})" class="text-orange-500 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg text-xs font-medium transition">退單</button>
                         </div>
                     </div>`;
             });
-            
-            document.getElementById('pos-today-total').innerText = `$${formatMoney(totalAmount)}`;
-            
-            const detailContainer = document.getElementById('pos-detail-list');
-            detailContainer.innerHTML = '';
+
+            document.getElementById('pos-today-total').innerText = `$${formatPrice(totalAmount)}`;
+
             let hasItems = false;
             for (let itemName in itemCounts) {
-                let count = Number(itemCounts[itemName].toFixed(2)); 
-                if (count > 0) {
-                    hasItems = true;
-                    detailContainer.innerHTML += `<div class="bg-orange-50/60 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center shadow-xs backdrop-blur-xs"><span class="mr-2">${itemName}</span><span class="bg-white/80 text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-xs">x ${count}</span></div>`;
-                }
+                hasItems = true;
+                const count = parseFloat(itemCounts[itemName].toFixed(1));
+                detailContainer.innerHTML += `<div class="bg-orange-50/60 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center shadow-xs backdrop-blur-xs"><span class="mr-2">${itemName}</span><span class="bg-white/80 text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-xs">x ${formatPrice(count)}</span></div>`;
             }
-            if (!hasItems) detailContainer.innerHTML = '<span class="text-xs text-stone-400">目前尚無餐點需預訂</span>';
 
-            const summaryContainer = document.getElementById('pos-summary-info');
-            summaryContainer.innerHTML = `
-                <div class="flex items-center justify-between w-full cursor-pointer bg-white/50 hover:bg-white/70 border border-orange-100/50 p-3 rounded-xl transition backdrop-blur-sm" onclick="showQAnimation()">
-                    <span class="text-xs text-[#C85A44] font-bold">💡 溫馨提醒：共 ${orderingEmps.size} 人點餐，${sharedEmps.size} 人共食。</span>
-                    <span class="bg-[#C85A44] text-white px-2.5 py-1 rounded-lg text-[10px] animate-pulse whitespace-nowrap shadow-sm">✨ 呼叫小幫手</span>
-                </div>
-            `;
+            const infoPanel = document.getElementById('pos-summary-info');
+            const pendingEmpsCount = appData.employees.filter(emp => !new Set(appData.orders.map(o => o.empName)).has(emp.name)).length;
+            
+            if (pendingEmpsCount === 0) {
+                infoPanel.classList.remove('hidden');
+                document.getElementById('reminder-text').innerText = `💡 溫馨提醒：共 ${orderingEmps.size} 人點餐，${sharedEmps.size} 人共食。全數處理完畢！`;
+            } else {
+                infoPanel.classList.add('hidden');
+            }
+        }
+
+        function checkAutoHelper() {
+            const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
+            const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
+
+            if (appData.orders.length > 0 && pendingEmpsCount === 0 && !hasShownHelperToday) {
+                hasShownHelperToday = true;
+                setTimeout(() => {
+                    showQAnimation(false);
+                }, 600);
+            }
+        }
+
+        async function cancelOrder(orderId, empName, price) {
+            if (confirm(price === 0 ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${formatPrice(price)} 退回給 ${empName} 嗎？`)) {
+                document.getElementById('global-loading').classList.remove('hidden');
+                const batch = db.batch();
+                
+                batch.delete(db.collection("Orders").doc(orderId));
+                
+                const empIdx = appData.employees.findIndex(e => e.name === empName);
+                if (empIdx > -1) {
+                    appData.employees[empIdx].balance += price;
+                }
+                batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+                
+                await batch.commit();
+                renderAll();
+            }
         }
 
         function renderLedger() {
-            let totalCash = appData.employees.reduce((sum, emp) => sum + emp.balance, 0);
-            document.getElementById('admin-cash-on-hand').innerText = `$${formatMoney(totalCash)}`;
-            
-            const topupSelect = document.getElementById('topup-emp');
-            topupSelect.innerHTML = '<option value="">選擇員工...</option>';
-            appData.employees.forEach(emp => { 
-                let cleanN = cleanStr(emp.name);
-                topupSelect.innerHTML += `<option value="${cleanN}">${cleanN}</option>`; 
-            });
-
             const tbody = document.getElementById('ledger-table');
             tbody.innerHTML = '';
-            appData.employees.forEach(emp => {
-                let cleanN = cleanStr(emp.name);
-                const balanceColor = emp.balance < 0 ? 'text-red-500' : (emp.balance > 0 ? 'text-green-600' : 'text-stone-400');
-                const displayBalance = Math.abs(emp.balance);
-                const balanceText = emp.balance < 0 ? `需補款 $${formatMoney(displayBalance)}` : `$${formatMoney(displayBalance)}`;
-                
+            let totalCash = 0;
+
+            let sortedEmps = [...appData.employees].sort((a, b) => a.balance - b.balance);
+
+            sortedEmps.forEach(emp => {
+                totalCash += emp.balance;
+                const balanceColor = emp.balance < 0 ? 'text-red-500 font-bold' : 'text-green-600 font-bold';
+                const balanceText = emp.balance < 0 ? `-$${formatPrice(Math.abs(emp.balance))}` : `$${formatPrice(emp.balance)}`;
+
                 tbody.innerHTML += `
                     <tr class="hover:bg-orange-50/50 transition border-b border-orange-100/30 last:border-0 relative z-10">
-                        <td class="p-4 font-bold text-[#4A3E3D]">${cleanN}</td>
+                        <td class="p-4 font-bold text-[#4A3E3D]">${emp.name}</td>
                         <td class="p-4 text-right font-black ${balanceColor}">${balanceText}</td>
                     </tr>`;
             });
 
+            document.getElementById('admin-cash-on-hand').innerText = `$${formatPrice(totalCash)}`;
+        }
+
+        function renderTopupSelect() {
+            const topupSelect = document.getElementById('topup-emp');
+            topupSelect.innerHTML = '<option value="">選擇員工...</option>';
+            appData.employees.forEach(emp => { 
+                topupSelect.innerHTML += `<option value="${emp.name}">${emp.name}</option>`; 
+            });
+        }
+
+        async function submitTopup() {
+            const empName = document.getElementById('topup-emp').value;
+            const amountStr = document.getElementById('topup-amount').value;
+            if (!empName || !amountStr) { alert('請填妥員工與收款金額！'); return; }
+
+            const amount = parseFloat(amountStr);
+            document.getElementById('global-loading').classList.remove('hidden');
+
+            const batch = db.batch();
+            const topupRef = db.collection("Topups").doc();
+            const now = new Date();
+            const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+            batch.set(topupRef, {
+                empName: empName,
+                amount: amount,
+                date: localDate,
+                time: now.toTimeString().substring(0, 5),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            const empIdx = appData.employees.findIndex(e => e.name === empName);
+            if (empIdx > -1) { appData.employees[empIdx].balance += amount; }
+            batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+
+            await batch.commit();
+            document.getElementById('topup-amount').value = '';
+            renderAll();
+        }
+
+        function renderTopupHistory() {
             const historyContainer = document.getElementById('topup-history');
             historyContainer.innerHTML = '';
-            if(appData.topups.length === 0) {
+
+            if (appData.topups.length === 0) {
                 historyContainer.innerHTML = '<p class="text-xs text-stone-400 text-center py-4">尚無收款紀錄</p>';
-            } else {
-                let groupedTopups = {};
-                appData.topups.forEach(t => {
-                    let monthStr = t.date.substring(0, 7).replace('-', '年') + '月';
-                    if(!groupedTopups[monthStr]) groupedTopups[monthStr] = [];
-                    groupedTopups[monthStr].push(t);
+                return;
+            }
+
+            let grouped = {};
+            appData.topups.forEach(t => {
+                let month = t.date.substring(0, 7);
+                if (!grouped[month]) grouped[month] = [];
+                grouped[month].push(t);
+            });
+
+            for (let month in grouped) {
+                let monthHtml = `<div class="mb-4 last:mb-0 relative z-10"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/40 pb-1 ml-1">${month}</h4><div class="space-y-2">`;
+                grouped[month].forEach(t => {
+                    monthHtml += `
+                        <div class="flex justify-between items-center bg-orange-50/40 p-2.5 rounded-xl border border-orange-100/40 backdrop-blur-xs">
+                            <div>
+                                <span class="font-bold text-sm text-[#4A3E3D] mr-2">${t.empName}</span>
+                                <span class="text-[10px] text-stone-400">${t.date.substring(5)} ${t.time}</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm font-black text-green-600 mr-1.5">+$${formatPrice(t.amount)}</span>
+                                <button onclick="editTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">修正</button>
+                                <button onclick="cancelTopup('${t.id}', '${t.empName}', ${t.amount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">刪除</button>
+                            </div>
+                        </div>`;
                 });
-                for(let month in groupedTopups) {
-                    let monthHtml = `<div class="mb-4 last:mb-0 relative z-10"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/40 pb-1 ml-1">${month}</h4><div class="space-y-2">`;
-                    groupedTopups[month].forEach(t => {
-                        let tName = cleanStr(t.empName);
-                        let tAmount = parseFloat(t.amount) || 0;
-                        monthHtml += `
-                            <div class="flex justify-between items-center bg-orange-50/40 p-2.5 rounded-xl border border-orange-100/40 backdrop-blur-xs">
-                                <div>
-                                    <span class="font-bold text-sm text-[#4A3E3D] mr-2">${tName}</span>
-                                    <span class="text-[10px] text-stone-400">${t.date.substring(5)} ${t.time}</span>
-                                </div>
-                                <div class="flex items-center space-x-1.5 relative z-10">
-                                    <span class="text-sm font-black text-green-600 mr-1.5">+$${formatMoney(tAmount)}</span>
-                                    <button onclick="editTopup('${t.id}', '${tName}', ${tAmount})" class="text-stone-500 hover:text-[#C85A44] text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">修正</button>
-                                    <button onclick="cancelTopup('${t.id}', '${tName}', ${tAmount})" class="text-stone-500 hover:text-red-500 text-[11px] font-medium transition px-2 py-1 bg-white/70 rounded shadow-sm backdrop-blur-xs">刪除</button>
-                                </div>
-                            </div>`;
-                    });
-                    monthHtml += `</div></div>`;
-                    historyContainer.innerHTML += monthHtml;
-                }
+                monthHtml += `</div></div>`;
+                historyContainer.innerHTML += monthHtml;
             }
         }
 
-        function shareToLine() {
-            let text = `🍱 【午餐帳務結算】 ${selectedDate.replace(/-/g, '/')}\n══════════════════\n`;
-            let negativeEmps = []; let positiveEmps = [];
-            
-            appData.employees.forEach(emp => {
-                let cleanN = cleanStr(emp.name);
-                let dailyOrders = appData.orders.filter(o => cleanStr(o.empName) === cleanN && o.date === selectedDate);
-                let todayOrderInfo = "";
-                if (dailyOrders.length > 0) {
-                    let foodStr = dailyOrders.map(o => cleanStr(o.food)).join(', ');
-                    
-                    let totalSpent = dailyOrders.reduce((sum, o) => {
-                        let singlePrice = parseFloat(o.price) || 0;
-                        if (o.shared > 1 && o.items && o.items.length > 0) {
-                            let baseCartTotal = o.items.reduce((s, item) => s + (parseFloat(item.price) || 0), 0);
-                            if (baseCartTotal > 0) singlePrice = parseFloat((baseCartTotal / o.shared).toFixed(1));
-                        }
-                        return sum + singlePrice;
-                    }, 0);
-                    
-                    todayOrderInfo = (foodStr === "未點餐") ? `\n  └ 今日跳過` : `\n  └ 今日: ${foodStr} (-$${formatMoney(totalSpent)})`;
-                }
-                let infoStr = `• ${cleanN}｜`;
-                
-                const displayBalance = Math.abs(emp.balance);
-                if (emp.balance < 0) negativeEmps.push(`${infoStr}❗需補款 $${formatMoney(displayBalance)}${todayOrderInfo}`);
-                else positiveEmps.push(`${infoStr}餘額 $${formatMoney(displayBalance)}${todayOrderInfo}`);
-            });
-            
-            if (negativeEmps.length > 0) text += `🔴 需補款名單：\n${negativeEmps.join('\n')}\n\n`;
-            if (positiveEmps.length > 0) text += `🟢 餘額充足名單：\n${positiveEmps.join('\n')}\n\n`;
-            text += `══════════════════\n💡 請需補款的同事記得找總務喔！`;
+        async function editTopup(id, empName, oldAmount) {
+            const newAmountStr = prompt(`修改「${empName}」的收款金額：`, oldAmount);
+            if (newAmountStr === null || isNaN(newAmountStr) || newAmountStr === '') return;
+            const newAmount = parseFloat(newAmountStr);
 
-            navigator.clipboard.writeText(text).then(() => { alert("✅ 已成功複製！請切換到 LINE 貼上。"); })
-            .catch(err => { alert("複製失敗，請手動複製。\n" + text); });
+            document.getElementById('global-loading').classList.remove('hidden');
+            const batch = db.batch();
+            batch.update(db.collection("Topups").doc(id), { amount: newAmount });
+
+            const empIdx = appData.employees.findIndex(e => e.name === empName);
+            if (empIdx > -1) { appData.employees[empIdx].balance = appData.employees[empIdx].balance - oldAmount + newAmount; }
+            batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+
+            await batch.commit();
+            renderAll();
         }
 
+        async function cancelTopup(id, empName, amount) {
+            if (confirm(`確定要刪除「${empName}」這筆 $${formatPrice(amount)} 的收款紀錄嗎？(員工餘額將會被扣回)`)) {
+                document.getElementById('global-loading').classList.remove('hidden');
+                const batch = db.batch();
+                batch.delete(db.collection("Topups").doc(id));
+
+                const empIdx = appData.employees.findIndex(e => e.name === empName);
+                if (empIdx > -1) { appData.employees[empIdx].balance -= amount; }
+                batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+
+                await batch.commit();
+                renderAll();
+            }
+        }
+
+        // --- 重點更新 2: EXCEL 報表小數點與欄位重構 ---
         async function exportToExcel() {
-            let currentMonth = getLocalISODate().substring(0,7);
-            let targetMonth = prompt("請輸入要匯出的月份 (格式 YYYY-MM)：", currentMonth);
+            let currentMonthStr = selectedDate.substring(0,7);
+            let targetMonth = prompt("請輸入要匯出的月份 (格式 YYYY-MM)：", currentMonthStr);
             if(!targetMonth) return;
 
-            const loading = document.getElementById('loading-overlay');
-            document.getElementById('loading-text').innerText = "產生報表中...";
-            loading.style.display = 'flex';
-            
+            document.getElementById('global-loading').classList.remove('hidden');
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet('當月對帳總表');
+
+            const daysInMonth = new Date(targetMonth.substring(0,4), targetMonth.substring(5,7), 0).getDate();
+
+            let columns = [
+                { header: '員工姓名', key: 'name', width: 14 },
+                { header: '上月結存', key: 'lastMonthBal', width: 12 }, 
+                { header: '本月總儲值', key: 'topup', width: 15 },
+                { header: '本月餐費總計', key: 'spend', width: 16 },
+                { header: '目前餘額(月底)', key: 'currentMonthBal', width: 16 } // 取代舊有的系統餘額
+            ];
+            for(let d=1; d<=daysInMonth; d++) { columns.push({ header: d + '號', key: 'd' + d, width: 6 }); }
+            sheet.columns = columns;
+
+            sheet.getRow(1).eachCell(cell => {
+                cell.font = { bold: true };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7F3' } }; 
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+            });
+
             try {
-                let orderSnap = await fdb.collection("Orders").where("date", ">=", targetMonth + "-01").get();
-                let topupSnap = await fdb.collection("Topups").where("date", ">=", targetMonth + "-01").get();
-
-                let allFutureOrders = orderSnap.docs.map(doc => doc.data());
-                let allFutureTopups = topupSnap.docs.map(doc => doc.data());
-
-                let monthOrders = allFutureOrders.filter(o => o.date.startsWith(targetMonth));
-                let monthTopups = allFutureTopups.filter(t => t.date.startsWith(targetMonth));
-
-                let activeDays = [];
-                for(let i=1; i<=31; i++) {
-                    let dayStr = targetMonth + "-" + i.toString().padStart(2, '0');
-                    if(monthOrders.some(o => o.date === dayStr)) {
-                        activeDays.push({ day: i, dateStr: dayStr });
-                    }
-                }
-
-                const workbook = new ExcelJS.Workbook();
-                const sheet = workbook.addWorksheet('本月午餐結算');
-
-                let columns = [
-                    { header: '員工姓名', key: 'name', width: 14 },
-                    { header: '上月結存', key: 'lastMonthBal', width: 12 }, 
-                    { header: '系統目前餘額', key: 'balance', width: 16 },
-                    { header: '本月總儲值', key: 'topup', width: 15 },
-                    { header: '本月餐費總計', key: 'spend', width: 16 }
-                ];
-                activeDays.forEach(d => { columns.push({ header: d.day + '號', key: 'd' + d.day, width: 6 }); });
-                sheet.columns = columns;
-
-                sheet.getRow(1).eachCell(cell => {
-                    cell.font = { bold: true };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7F3' } }; 
-                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                    cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-                });
+                const ordersSnapshot = await db.collection("Orders").get();
+                const allOrders = ordersSnapshot.docs.map(d => d.data());
+                const topupsSnapshot = await db.collection("Topups").get();
+                const allTopups = topupsSnapshot.docs.map(d => d.data());
 
                 appData.employees.forEach(emp => {
-                    let cleanN = cleanStr(emp.name);
-                    let empFutureOrders = allFutureOrders.filter(o => cleanStr(o.empName) === cleanN);
-                    let empFutureTopups = allFutureTopups.filter(t => cleanStr(t.empName) === cleanN);
-                    
-                    let futureSpendTotal = empFutureOrders.reduce((sum, o) => {
-                        let p = parseFloat(o.price) || 0;
-                        if (o.shared > 1 && o.items && o.items.length > 0) {
-                            let bTotal = o.items.reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
-                            if (bTotal > 0) p = parseFloat((bTotal / o.shared).toFixed(1));
-                        }
-                        return sum + p;
-                    }, 0);
-                    
-                    let futureTopupTotal = empFutureTopups.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-                    let lastMonthBalance = emp.balance - futureTopupTotal + futureSpendTotal;
+                    // 1. 撈取目標月份之前的所有歷史紀錄計算「上月結存」
+                    const priorOrders = allOrders.filter(o => o.empName === emp.name && o.date < `${targetMonth}-01`);
+                    const priorOrdersSpent = priorOrders.reduce((sum, o) => sum + o.price, 0);
+                    const priorTopups = allTopups.filter(t => t.empName === emp.name && t.date < `${targetMonth}-01`);
+                    const priorTopupsReceived = priorTopups.reduce((sum, t) => sum + t.amount, 0);
+                    const lastMonthBalance = priorTopupsReceived - priorOrdersSpent;
 
-                    let empOrders = monthOrders.filter(o => cleanStr(o.empName) === cleanN);
-                    let empTopups = monthTopups.filter(t => cleanStr(t.empName) === cleanN);
+                    // 2. 統計目標月份的儲值與消費
+                    const monthOrders = allOrders.filter(o => o.empName === emp.name && o.date.startsWith(targetMonth));
+                    const monthTopups = allTopups.filter(t => t.empName === emp.name && t.date.startsWith(targetMonth));
+                    
+                    const totalSpend = monthOrders.reduce((sum, o) => sum + o.price, 0);
+                    const totalTopup = monthTopups.reduce((sum, t) => sum + t.amount, 0);
+                    const spendVal = totalSpend > 0 ? -totalSpend : 0; 
+                    
+                    // 3. 計算目標月份的精準月底餘額：上月結存 + 本月儲值 - 本月花費
+                    const currentMonthEndBalance = lastMonthBalance + totalTopup - totalSpend;
 
-                    let totalSpend = empOrders.reduce((sum, o) => {
-                        let p = parseFloat(o.price) || 0;
-                        if (o.shared > 1 && o.items && o.items.length > 0) {
-                            let bTotal = o.items.reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
-                            if (bTotal > 0) p = parseFloat((bTotal / o.shared).toFixed(1));
-                        }
-                        return sum + p;
-                    }, 0);
-                    
-                    let totalTopup = empTopups.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-                    let spendVal = totalSpend > 0 ? -totalSpend : 0; 
-                    
                     let rowData = {
-                        name: cleanN,
-                        lastMonthBal: parseFloat(lastMonthBalance.toFixed(1)), 
-                        balance: parseFloat(emp.balance.toFixed(1)),
-                        topup: totalTopup > 0 ? parseFloat(totalTopup.toFixed(1)) : '',
-                        spend: spendVal !== 0 ? parseFloat(spendVal.toFixed(1)) : ''
+                        name: emp.name,
+                        lastMonthBal: lastMonthBalance % 1 === 0 ? lastMonthBalance : Number(lastMonthBalance.toFixed(1)), 
+                        topup: totalTopup > 0 ? (totalTopup % 1 === 0 ? totalTopup : Number(totalTopup.toFixed(1))) : '',
+                        spend: spendVal !== 0 ? (spendVal % 1 === 0 ? spendVal : Number(spendVal.toFixed(1))) : '',
+                        currentMonthBal: currentMonthEndBalance % 1 === 0 ? currentMonthEndBalance : Number(currentMonthEndBalance.toFixed(1))
                     };
 
-                    activeDays.forEach(d => {
-                        let dailyOrders = empOrders.filter(o => o.date === d.dateStr);
-                        let dailySpend = dailyOrders.reduce((sum, o) => {
-                            let p = parseFloat(o.price) || 0;
-                            if (o.shared > 1 && o.items && o.items.length > 0) {
-                                let bTotal = o.items.reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
-                                if (bTotal > 0) p = parseFloat((bTotal / o.shared).toFixed(1));
-                            }
-                            return sum + p;
-                        }, 0);
-                        rowData['d' + d.day] = dailySpend > 0 ? parseFloat((-dailySpend).toFixed(1)) : '';
-                    });
+                    for(let d=1; d<=daysInMonth; d++) {
+                        const dateStr = `${targetMonth}-${String(d).padStart(2, '0')}`;
+                        const dailyOrders = monthOrders.filter(o => o.date === dateStr);
+                        const dailySpend = dailyOrders.reduce((sum, o) => sum + o.price, 0);
+                        rowData['d' + d] = dailySpend > 0 ? (-dailySpend % 1 === 0 ? -dailySpend : Number((-dailySpend).toFixed(1))) : '';
+                    }
 
                     let row = sheet.addRow(rowData);
 
@@ -988,114 +814,163 @@
 
                 const buffer = await workbook.xlsx.writeBuffer();
                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
-                link.href = url;
+                link.href = URL.createObjectURL(blob);
                 link.download = `午餐結算總表_${targetMonth}.xlsx`;
-                document.body.appendChild(link);
                 link.click();
-                document.body.removeChild(link);
-
             } catch(e) {
                 alert("報表產生失敗，請檢查網路連線");
                 console.error(e);
             }
-            loading.style.display = 'none';
-            document.getElementById('loading-text').innerText = "系統連線中...";
+            document.getElementById('global-loading').classList.add('hidden');
         }
 
-        function moveEmpUp(index) {
-            if (index > 0) {
-                updateSettingsAction(() => {
-                    let temp = appData.employees[index];
-                    appData.employees[index] = appData.employees[index - 1];
-                    appData.employees[index - 1] = temp;
-                });
+        function shareToLine() {
+            let text = `🍱 【午餐帳務結算】 ${selectedDate.replace(/-/g, '/')}\n══════════════════\n`;
+            let itemCounts = {};
+            let totalAmount = 0;
+
+            appData.orders.forEach(order => {
+                if (order.food !== "未點餐") {
+                    totalAmount += order.price;
+                    text += `👤 ${order.empName}：${order.food} [$${formatPrice(order.price)}]\n`;
+                    
+                    const items = order.food.split('+');
+                    items.forEach(itemName => {
+                        if (!itemCounts[itemName]) itemCounts[itemName] = 0;
+                        itemCounts[itemName] += (1 / order.shared);
+                    });
+                } else {
+                    text += `👤 ${order.empName}：本日未點餐 💤\n`;
+                }
+            });
+
+            text += `══════════════════\n📊 【便當預訂總統計組數】\n`;
+            for (let itemName in itemCounts) {
+                text += `▪️ ${itemName} × ${formatPrice(itemCounts[itemName])} 份\n`;
             }
+            text += `══════════════════\n💰 今日現金總計：$${formatPrice(totalAmount)} 元`;
+
+            window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`);
         }
 
-        function moveEmpDown(index) {
-            if (index < appData.employees.length - 1) {
-                updateSettingsAction(() => {
-                    let temp = appData.employees[index];
-                    appData.employees[index] = appData.employees[index + 1];
-                    appData.employees[index + 1] = temp;
-                });
+        function showQAnimation(isManualClick = false) {
+            const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
+            const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
+
+            let speech = "";
+            if (pendingEmpsCount > 0) {
+                speech = `老闆！還有 ${pendingEmpsCount} 位員工還沒決定午餐喔！快催催他們～`;
+            } else {
+                const lines = [
+                    "太棒了！今天所有同仁的午餐都已經完美登錄完畢囉！✨",
+                    "點餐收單！別忘了打電話跟便當店訂餐喔～📞",
+                    "大功告成！今天大家都有飯吃了，小幫手祝您用餐愉快！🍱"
+                ];
+                speech = isManualClick ? lines[Math.floor(Math.random() * lines.length)] : lines[0];
             }
+
+            document.getElementById('q-speech-text').innerText = speech;
+            document.getElementById('q-animation-overlay').classList.remove('hidden');
         }
 
-        async function updateSettingsAction(actionFn) {
-            actionFn(); renderAll(); 
-            try { await saveSettingsToCloud(); } catch(e) {}
+        function closeQAnimation() {
+            document.getElementById('q-animation-overlay').classList.add('hidden');
+        }
+
+        function switchTab(viewId) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden-view'));
+            document.getElementById(viewId).classList.remove('hidden-view');
+            
+            document.querySelectorAll('nav button').forEach(b => {
+                b.classList.remove('nav-active');
+                b.classList.add('nav-inactive');
+            });
+            
+            if(viewId === 'view-pos') document.getElementById('tab-pos').className = document.getElementById('tab-pos').className.replace('nav-inactive', 'nav-active');
+            if(viewId === 'view-ledger') document.getElementById('tab-ledger').className = document.getElementById('tab-ledger').className.replace('nav-inactive', 'nav-active');
+            if(viewId === 'view-settings') document.getElementById('tab-settings').className = document.getElementById('tab-settings').className.replace('nav-inactive', 'nav-active');
         }
 
         function renderSettings() {
-            const empContainer = document.getElementById('setting-employees');
-            empContainer.innerHTML = '';
+            const empSettingContainer = document.getElementById('setting-employees');
+            empSettingContainer.innerHTML = '';
+            
             appData.employees.forEach((emp, i) => {
-                let cleanN = cleanStr(emp.name);
-                const balColor = emp.balance < 0 ? 'text-red-500' : 'text-stone-500';
-                empContainer.innerHTML += `
+                const balColor = emp.balance < 0 ? 'text-red-500' : 'text-green-600';
+                empSettingContainer.innerHTML += `
                     <div class="flex justify-between items-center bg-white/55 p-3.5 rounded-2xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
-                        <div class="flex items-center relative z-10">
-                            <div class="flex flex-col mr-3 space-y-1">
+                        <div class="flex items-center space-x-2">
+                            <div class="flex flex-col space-y-1">
                                 <button onclick="moveEmpUp(${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] ${i === 0 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▲</button>
                                 <button onclick="moveEmpDown(${i})" class="text-[10px] bg-white/70 text-stone-500 rounded px-1.5 hover:bg-orange-100 hover:text-[#C85A44] ${i === appData.employees.length - 1 ? 'opacity-0 pointer-events-none' : ''} transition shadow-xs backdrop-blur-xs">▼</button>
                             </div>
-                            <span class="font-bold text-sm text-[#4A3E3D]">${cleanN}</span>
-                        </div>
-                        <div class="flex items-center space-x-3 relative z-10">
-                            <span class="text-sm font-black ${balColor}">$${formatMoney(emp.balance)}</span>
-                            <div class="flex space-x-1.5">
-                                <button onclick="editEmpBalance(${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
-                                <button onclick="deleteEmployee(${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
+                            <div class="pl-1">
+                                <span class="font-bold text-sm text-[#4A3E3D]">${emp.name}</span>
+                                <span class="text-xs font-black ${balColor} block">$${formatPrice(emp.balance)}</span>
                             </div>
+                        </div>
+                        <div class="flex space-x-1.5">
+                            <button onclick="editEmpBalance(${i})" class="text-xs bg-orange-50 hover:bg-orange-100 text-[#C85A44] font-medium px-3 py-1.5 rounded-lg transition">更正</button>
+                            <button onclick="deleteEmployee(${i})" class="text-xs bg-red-50 hover:bg-red-100 text-red-500 font-medium px-3 py-1.5 rounded-lg transition">刪除</button>
                         </div>
                     </div>`;
             });
 
-            const storeContainer = document.getElementById('setting-stores');
-            storeContainer.innerHTML = '';
+            const storeSettingContainer = document.getElementById('setting-stores');
+            storeSettingContainer.innerHTML = '';
+            
             appData.stores.forEach((store, sIdx) => {
-                let sName = cleanStr(store.name);
-                let html = `
-                    <div class="bg-white/55 p-4 rounded-3xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
-                        <div class="flex justify-between items-center mb-3 border-b border-orange-100/30 pb-3 relative z-10">
-                            <span class="font-bold text-sm text-[#4A3E3D] flex items-center">
-                                <svg class="w-4 h-4 mr-1.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                ${sName}
-                            </span>
-                            <div class="flex space-x-2">
-                                <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">+ 餐點</button>
-                                <button onclick="deleteStore(${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">刪店家</button>
-                            </div>
-                        </div>
-                        <div class="space-y-2.5 relative z-10">`;
+                let menuHtml = '';
                 store.menu.forEach((item, mIdx) => {
-                    let mName = cleanStr(item.name);
-                    html += `
+                    menuHtml += `
                         <div class="flex justify-between items-center pl-1 border-b border-orange-100/20 pb-2 last:border-0 last:pb-0 relative z-10">
-                            <span class="text-sm text-stone-500 font-medium">${mName}</span>
-                            <div class="flex items-center space-x-2 relative z-10">
-                                <span class="text-sm theme-text font-bold mr-1">$${formatMoney(item.price)}</span>
+                            <span class="text-sm text-stone-500 font-medium">${item.name}</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm theme-text font-bold mr-1">$${formatPrice(item.price)}</span>
                                 <button onclick="editMenuPrice(${sIdx}, ${mIdx})" class="text-[10px] bg-white/70 text-stone-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">改價</button>
                                 <button onclick="deleteMenuItem(${sIdx}, ${mIdx})" class="text-[10px] bg-red-50/70 text-red-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">刪除</button>
                             </div>
                         </div>`;
                 });
-                html += `</div></div>`;
-                storeContainer.innerHTML += html;
+
+                storeSettingContainer.innerHTML += `
+                    <div class="bg-white/55 p-4 rounded-3xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
+                        <div class="flex justify-between items-center mb-3 border-b border-orange-100/30 pb-3 relative z-10">
+                            <h4 class="font-bold text-sm text-[#4A3E3D] flex items-center">
+                                <svg class="w-4 h-4 mr-1.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                ${store.name}
+                            </h4>
+                            <div class="flex space-x-2">
+                                <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">+ 餐點</button>
+                                <button onclick="deleteStore(${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">刪店家</button>
+                            </div>
+                        </div>
+                        <div class="space-y-3">${menuHtml || '<span class="text-xs text-stone-400 block py-1">目前菜單內尚無餐點</span>'}</div>
+                    </div>`;
             });
         }
 
-        function addEmployee() { let name = prompt("請輸入新同事姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: cleanStr(name), balance: 0})); }
-        function editEmpBalance(index) { let emp = appData.employees[index]; let newBal = prompt(`請輸入 ${cleanStr(emp.name)} 的正確餘額：\n(若要記錄繳款，請至存摺頁面使用「新增收款作業」)`, emp.balance); if(newBal !== null && !isNaN(newBal)) updateSettingsAction(() => emp.balance = parseFloat(newBal)); }
-        function deleteEmployee(index) { if(confirm(`確定要刪除「${cleanStr(appData.employees[index].name)}」嗎？`)) updateSettingsAction(() => appData.employees.splice(index, 1)); }
-        function addStore() { let name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => { appData.stores.push({id: 's'+Date.now(), name: cleanStr(name), menu: []}); initStoreSelector(); }); }
-        function deleteStore(storeIndex) { if(confirm(`確定要刪除「${cleanStr(appData.stores[storeIndex].name)}」嗎？`)) updateSettingsAction(() => { appData.stores.splice(storeIndex, 1); initStoreSelector(); }); }
-        function addMenuItem(storeIndex) { let name = prompt("請輸入餐點："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[storeIndex].menu.push({name: cleanStr(name), price: parseFloat(price)})); }
-        function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「${cleanStr(item.name)}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseFloat(newPrice)); }
-        function deleteMenuItem(storeIndex, menuIndex) { if(confirm(`刪除「${cleanStr(appData.stores[storeIndex].menu[menuIndex].name)}」？`)) updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1)); }
+        async function updateSettingsAction(callback) {
+            document.getElementById('global-loading').classList.remove('hidden');
+            callback();
+            await db.collection("System").doc("Settings").set(appData);
+            renderAll();
+        }
+
+        function addEmployee() { const name = prompt("請輸入新員工姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: name, balance: 0})); }
+        function editEmpBalance(i) { const bal = prompt(`修改「${appData.employees[i].name}」的存摺可用餘額：`, appData.employees[i].balance); if(bal !== null && !isNaN(bal)) updateSettingsAction(() => appData.employees[i].balance = parseFloat(bal)); }
+        function deleteEmployee(i) { if(confirm(`確定刪除 ${appData.employees[i].name} 嗎？`)) updateSettingsAction(() => appData.employees.splice(i, 1)); }
+        function moveEmpUp(i) { if(i===0)return; updateSettingsAction(() => { let temp = appData.employees[i]; appData.employees[i] = appData.employees[i-1]; appData.employees[i-1] = temp; }); }
+        function moveEmpDown(i) { if(i===appData.employees.length-1)return; updateSettingsAction(() => { let temp = appData.employees[i]; appData.employees[i] = appData.employees[i+1]; appData.employees[i+1] = temp; }); }
+        
+        function addStore() { const name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => appData.stores.push({id: 'store_' + Date.now(), name: name, menu: []})); }
+        function deleteStore(sIdx) { if(confirm(`確定刪除店家「${appData.stores[sIdx].name}」及旗下整張菜單嗎？`)) updateSettingsAction(() => appData.stores.splice(sIdx, 1)); }
+        function addMenuItem(sIdx) { const name = prompt("餐點名稱："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[sIdx].menu.push({name: name, price: parseFloat(price)})); }
+        function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「${item.name}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseFloat(newPrice)); }
+        function deleteMenuItem(storeIndex, menuIndex) { if(confirm("確定刪除此餐點項目嗎？")) updateSettingsAction(() => appData.stores[storeIndex].menu.splice(menuIndex, 1)); }
+
+        window.onload = init;
     </script>
 </body>
 </html>
