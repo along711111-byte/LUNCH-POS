@@ -21,7 +21,6 @@
         }
         .hidden-view { display: none !important; }
         
-        /* 視覺優化：高透視感調整 */
         .glass-panel { background: rgba(255, 252, 248, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(210, 180, 160, 0.4); box-shadow: 0 8px 30px rgba(100, 70, 50, 0.08); }
         .glass-nav { background: rgba(255, 252, 248, 0.70); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(210, 180, 160, 0.4); }
         
@@ -42,20 +41,12 @@
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         
         #loading-overlay { position: fixed; inset: 0; background: rgba(253, 249, 245, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #C85A44; text-align: center; }
-
         #q-animation-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100000; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
         
-        @keyframes bounce-in {
-            0% { transform: scale(0.5); opacity: 0; }
-            60% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
+        @keyframes bounce-in { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
         .anim-bubble { animation: bounce-in 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; animation-delay: 0.3s; opacity: 0; }
         
-        @keyframes slide-up-char {
-            0% { transform: translateY(100px); opacity: 0; }
-            100% { transform: translateY(0); opacity: 1; }
-        }
+        @keyframes slide-up-char { 0% { transform: translateY(100px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
         .anim-char { animation: slide-up-char 0.5s ease-out forwards; }
     </style>
 </head>
@@ -176,9 +167,10 @@
                     同仁繳交餐費隨手登錄
                 </div>
                 <div class="flex space-x-2">
-                    <select id="topup-emp" class="flex-grow bg-white/60 border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700"></select>
-                    <input type="number" step="0.1" id="topup-amount" placeholder="金額" class="w-24 bg-white/60 border border-orange-100 rounded-xl px-3 py-2 text-sm outline-none text-stone-700">
-                    <button onclick="submitTopup()" class="btn-active bg-[#C85A44] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">收款</button>
+                    <select id="topup-emp" class="flex-grow bg-white/60 border border-orange-100 rounded-xl px-2 py-2 text-sm outline-none text-stone-700"></select>
+                    <input type="date" id="topup-date" class="w-[125px] bg-white/60 border border-orange-100 rounded-xl px-2 py-2 text-xs outline-none text-stone-700">
+                    <input type="number" step="0.1" id="topup-amount" placeholder="金額" class="w-20 bg-white/60 border border-orange-100 rounded-xl px-2 py-2 text-sm outline-none text-stone-700">
+                    <button onclick="submitTopup()" class="btn-active bg-[#C85A44] text-white px-3 py-2 rounded-xl text-sm font-bold shadow-md">收款</button>
                 </div>
             </div>
 
@@ -252,19 +244,10 @@
     </nav>
 
     <script>
-        // 初始化 Firebase
-        const firebaseConfig = {
-          apiKey: "AIzaSyCN5T3Wy5M_Ei9JY1kqgc1YzmN4UMufQQw",
-          authDomain: "date-ea265.firebaseapp.com",
-          projectId: "date-ea265",
-          storageBucket: "date-ea265.firebasestorage.app",
-          messagingSenderId: "783131275726",
-          appId: "1:783131275726:web:a0942ad1560b82e1783b9f"
-        };
+        const firebaseConfig = { apiKey: "AIzaSyCN5T3Wy5M_Ei9JY1kqgc1YzmN4UMufQQw", authDomain: "date-ea265.firebaseapp.com", projectId: "date-ea265", storageBucket: "date-ea265.firebasestorage.app", messagingSenderId: "783131275726", appId: "1:783131275726:web:a0942ad1560b82e1783b9f" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // 核心狀態
         let appData = { employees: [], stores: [], orders: [], topups: [] };
         let selectedDate = new Date().toISOString().split('T')[0];
         let currentSelectedStoreId = '';
@@ -272,7 +255,6 @@
         let currentCartItems = [];
         let hasShownHelperToday = false; 
 
-        // 格式化數字邏輯
         function formatPrice(num) {
             if (num === undefined || num === null || isNaN(num)) return "0";
             return num % 1 === 0 ? num.toString() : parseFloat(num.toFixed(1)).toString();
@@ -284,9 +266,9 @@
             selectedDate = d.toISOString().split('T')[0];
             
             document.getElementById('order-date').value = selectedDate;
+            document.getElementById('topup-date').value = selectedDate; // 同步預設今天
             document.getElementById('display-selected-date').innerText = selectedDate.replace(/-/g, '/');
             
-            // 監聽核心資料庫
             db.collection("System").doc("Settings").onSnapshot(doc => {
                 if (doc.exists) {
                     const data = doc.data();
@@ -301,10 +283,8 @@
         }
 
         function loadDailyOrdersAndTopups() {
-            // 監聽當日訂單
             db.collection("Orders").where("date", "==", selectedDate).onSnapshot(snapshot => {
                 appData.orders = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
-                // 監聽收款紀錄
                 db.collection("Topups").orderBy("timestamp", "desc").onSnapshot(tSnapshot => {
                     appData.topups = tSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
                     renderAll();
@@ -330,6 +310,7 @@
         function changeDate() {
             selectedDate = document.getElementById('order-date').value;
             document.getElementById('display-selected-date').innerText = selectedDate.replace(/-/g, '/');
+            document.getElementById('topup-date').value = selectedDate; // 切換日期時順便連動收款日期
             selectedEmployeesForCart.clear();
             currentCartItems = [];
             hasShownHelperToday = false; 
@@ -355,7 +336,6 @@
         function renderPendingEmployees() {
             const empContainer = document.getElementById('pending-employees');
             empContainer.innerHTML = '';
-            
             const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
             const pendingEmps = appData.employees.filter(emp => !orderedEmpNames.has(emp.name));
 
@@ -365,17 +345,11 @@
                 empContainer.innerHTML += `<button onclick="toggleEmp('${emp.name}')" class="btn-active py-3 border rounded-xl transition font-medium text-sm ${btnClass} truncate px-1 shadow-sm">${emp.name}</button>`;
             });
 
-            if (pendingEmps.length === 0) {
-                empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>';
-            }
+            if (pendingEmps.length === 0) { empContainer.innerHTML = '<p class="text-xs text-stone-500 col-span-3 text-center py-2 flex justify-center items-center">✅ 所有同事皆已處理</p>'; }
         }
 
         function toggleEmp(empName) {
-            if (selectedEmployeesForCart.has(empName)) {
-                selectedEmployeesForCart.delete(empName);
-            } else {
-                selectedEmployeesForCart.add(empName);
-            }
+            if (selectedEmployeesForCart.has(empName)) { selectedEmployeesForCart.delete(empName); } else { selectedEmployeesForCart.add(empName); }
             updateCartInfo();
             renderPendingEmployees();
         }
@@ -404,28 +378,15 @@
 
         function toggleCartItem(foodName, price) {
             if (foodName === '未點餐') {
-                if (selectedEmployeesForCart.size === 0) {
-                    alert('請先在上方選擇要登記「未點餐」的同仁！');
-                    return;
-                }
+                if (selectedEmployeesForCart.size === 0) { alert('請先在上方選擇要登記「未點餐」的同仁！'); return; }
                 currentCartItems = [{ name: '未點餐', price: 0 }];
-                submitCart();
-                return;
+                submitCart(); return;
             }
-
-            if (selectedEmployeesForCart.size === 0) {
-                alert('請先在上方選擇點餐對象，再點選餐點項目！');
-                return;
-            }
+            if (selectedEmployeesForCart.size === 0) { alert('請先在上方選擇點餐對象，再點選餐點項目！'); return; }
 
             const index = currentCartItems.findIndex(i => i.name === foodName);
-            if (index > -1) {
-                currentCartItems.splice(index, 1);
-            } else {
-                currentCartItems.push({ name: foodName, price: price });
-            }
-            updateCartInfo();
-            renderMenu();
+            if (index > -1) { currentCartItems.splice(index, 1); } else { currentCartItems.push({ name: foodName, price: price }); }
+            updateCartInfo(); renderMenu();
         }
 
         function updateCartInfo() {
@@ -434,31 +395,17 @@
             const totalSpan = document.getElementById('cart-total');
             const isShared = document.getElementById('cart-is-shared').checked;
 
-            if (currentCartItems.length === 0 || selectedEmployeesForCart.size === 0) {
-                previewBox.classList.add('hidden');
-                return;
-            }
+            if (currentCartItems.length === 0 || selectedEmployeesForCart.size === 0) { previewBox.classList.add('hidden'); return; }
             previewBox.classList.remove('hidden');
 
             let cartBaseTotal = currentCartItems.reduce((sum, item) => sum + item.price, 0);
             let perPersonAmount = isShared ? (cartBaseTotal / selectedEmployeesForCart.size) : cartBaseTotal;
 
-            itemsList.innerHTML = `
-                <div class="flex justify-between items-center text-xs text-orange-100 font-bold bg-white/10 px-2 py-1 rounded-md mb-1.5">
-                    <span>對象: ${Array.from(selectedEmployeesForCart).join(', ')}</span>
-                    <span>共 ${selectedEmployeesForCart.size} 人</span>
-                </div>
-            `;
-            
-            currentCartItems.forEach(item => {
-                itemsList.innerHTML += `<div class="flex justify-between"><span>• ${item.name}</span><span>$${formatPrice(item.price)}</span></div>`;
-            });
+            itemsList.innerHTML = `<div class="flex justify-between items-center text-xs text-orange-100 font-bold bg-white/10 px-2 py-1 rounded-md mb-1.5"><span>對象: ${Array.from(selectedEmployeesForCart).join(', ')}</span><span>共 ${selectedEmployeesForCart.size} 人</span></div>`;
+            currentCartItems.forEach(item => { itemsList.innerHTML += `<div class="flex justify-between"><span>• ${item.name}</span><span>$${formatPrice(item.price)}</span></div>`; });
 
-            if (isShared) {
-                totalSpan.innerHTML = `$${formatPrice(perPersonAmount)} <span class="text-xs font-normal text-orange-100">/人 (👥共食拆帳)</span>`;
-            } else {
-                totalSpan.innerHTML = `$${formatPrice(cartBaseTotal)} <span class="text-xs font-normal text-orange-100">/人</span>`;
-            }
+            if (isShared) { totalSpan.innerHTML = `$${formatPrice(perPersonAmount)} <span class="text-xs font-normal text-orange-100">/人 (👥共食拆帳)</span>`; } 
+            else { totalSpan.innerHTML = `$${formatPrice(cartBaseTotal)} <span class="text-xs font-normal text-orange-100">/人</span>`; }
         }
 
         async function submitCart() {
@@ -475,52 +422,33 @@
 
             for (let empName of selectedEmployeesForCart) {
                 const orderRef = db.collection("Orders").doc();
-                batch.set(orderRef, {
-                    date: selectedDate,
-                    empName: empName,
-                    food: foodNames,
-                    price: perPersonAmount,
-                    shared: sharedCount,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                batch.set(orderRef, { date: selectedDate, empName: empName, food: foodNames, price: perPersonAmount, shared: sharedCount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
 
                 const empIdx = appData.employees.findIndex(e => e.name === empName);
-                if (empIdx > -1) {
-                    appData.employees[empIdx].balance -= perPersonAmount;
-                }
+                if (empIdx > -1) { appData.employees[empIdx].balance -= perPersonAmount; }
             }
 
-            const coreRef = db.collection("System").doc("Settings");
-            batch.update(coreRef, { employees: appData.employees });
-
+            batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
             await batch.commit();
 
-            selectedEmployeesForCart.clear();
-            currentCartItems = [];
-            document.getElementById('cart-is-shared').checked = false;
-            updateCartInfo();
-            renderAll();
+            selectedEmployeesForCart.clear(); currentCartItems = []; document.getElementById('cart-is-shared').checked = false;
+            updateCartInfo(); renderAll();
         }
 
         function renderCompletedOrders() {
             const orderContainer = document.getElementById('completed-orders');
             const detailContainer = document.getElementById('pos-detail-list');
-            orderContainer.innerHTML = '';
-            detailContainer.innerHTML = '';
+            orderContainer.innerHTML = ''; detailContainer.innerHTML = '';
 
-            let totalAmount = 0;
-            let orderingEmps = new Set();
-            let sharedEmps = new Set();
+            let totalAmount = 0; let orderingEmps = new Set(); let sharedEmps = new Set();
 
             if (appData.orders.length === 0) {
                 orderContainer.innerHTML = '<div class="text-center py-5"><span class="text-xs text-stone-400">目前尚無明細</span></div>';
                 document.getElementById('pos-today-total').innerText = '$0';
-                document.getElementById('pos-summary-info').classList.add('hidden');
-                return;
+                document.getElementById('pos-summary-info').classList.add('hidden'); return;
             }
 
             appData.orders.sort((a, b) => (a.food === '未點餐' ? 1 : 0) - (b.food === '未點餐' ? 1 : 0));
-
             let itemCounts = {};
 
             appData.orders.forEach(order => {
@@ -528,12 +456,7 @@
                 if (order.food !== "未點餐") {
                     orderingEmps.add(order.empName);
                     if (order.shared > 1) sharedEmps.add(order.empName);
-
-                    const items = order.food.split('+');
-                    items.forEach(itemName => {
-                        if (!itemCounts[itemName]) itemCounts[itemName] = 0;
-                        itemCounts[itemName] += (1 / order.shared);
-                    });
+                    order.food.split('+').forEach(itemName => { if (!itemCounts[itemName]) itemCounts[itemName] = 0; itemCounts[itemName] += (1 / order.shared); });
                 }
 
                 const isSkip = order.food === "未點餐";
@@ -555,33 +478,25 @@
 
             document.getElementById('pos-today-total').innerText = `$${formatPrice(totalAmount)}`;
 
-            let hasItems = false;
             for (let itemName in itemCounts) {
-                hasItems = true;
                 const count = parseFloat(itemCounts[itemName].toFixed(1));
                 detailContainer.innerHTML += `<div class="bg-orange-50/60 border border-orange-100 text-[#C85A44] text-xs font-bold px-3 py-2 rounded-xl flex items-center shadow-xs backdrop-blur-xs"><span class="mr-2">${itemName}</span><span class="bg-white/80 text-orange-500 px-1.5 py-0.5 rounded-md text-[10px] shadow-xs">x ${formatPrice(count)}</span></div>`;
             }
 
             const infoPanel = document.getElementById('pos-summary-info');
             const pendingEmpsCount = appData.employees.filter(emp => !new Set(appData.orders.map(o => o.empName)).has(emp.name)).length;
-            
             if (pendingEmpsCount === 0) {
                 infoPanel.classList.remove('hidden');
                 document.getElementById('reminder-text').innerText = `💡 溫馨提醒：共 ${orderingEmps.size} 人點餐，${sharedEmps.size} 人共食。全數處理完畢！`;
-            } else {
-                infoPanel.classList.add('hidden');
-            }
+            } else { infoPanel.classList.add('hidden'); }
         }
 
         function checkAutoHelper() {
             const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
             const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
-
             if (appData.orders.length > 0 && pendingEmpsCount === 0 && !hasShownHelperToday) {
                 hasShownHelperToday = true; 
-                setTimeout(() => {
-                    showQAnimation(false); 
-                }, 600);
+                setTimeout(() => { showQAnimation(false); }, 600);
             }
         }
 
@@ -589,54 +504,44 @@
             if (confirm(price === 0 ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${formatPrice(price)} 退回給 ${empName} 嗎？`)) {
                 document.getElementById('global-loading').classList.remove('hidden');
                 const batch = db.batch();
-                
                 batch.delete(db.collection("Orders").doc(orderId));
-                
                 const empIdx = appData.employees.findIndex(e => e.name === empName);
-                if (empIdx > -1) {
-                    appData.employees[empIdx].balance += price;
-                }
+                if (empIdx > -1) { appData.employees[empIdx].balance += price; }
                 batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
-                
-                await batch.commit();
-                renderAll();
+                await batch.commit(); renderAll();
             }
         }
 
         function renderLedger() {
             const tbody = document.getElementById('ledger-table');
-            tbody.innerHTML = '';
-            let totalCash = 0;
-
+            tbody.innerHTML = ''; let totalCash = 0;
             let sortedEmps = [...appData.employees].sort((a, b) => a.balance - b.balance);
 
             sortedEmps.forEach(emp => {
                 totalCash += emp.balance;
                 const balanceColor = emp.balance < 0 ? 'text-red-500 font-bold' : 'text-green-600 font-bold';
                 const balanceText = emp.balance < 0 ? `-$${formatPrice(Math.abs(emp.balance))}` : `$${formatPrice(emp.balance)}`;
-
                 tbody.innerHTML += `
                     <tr class="hover:bg-orange-50/50 transition border-b border-orange-100/30 last:border-0 relative z-10">
                         <td class="p-4 font-bold text-[#4A3E3D]">${emp.name}</td>
                         <td class="p-4 text-right font-black ${balanceColor}">${balanceText}</td>
                     </tr>`;
             });
-
             document.getElementById('admin-cash-on-hand').innerText = `$${formatPrice(totalCash)}`;
         }
 
         function renderTopupSelect() {
             const topupSelect = document.getElementById('topup-emp');
             topupSelect.innerHTML = '<option value="">選擇員工...</option>';
-            appData.employees.forEach(emp => { 
-                topupSelect.innerHTML += `<option value="${emp.name}">${emp.name}</option>`; 
-            });
+            appData.employees.forEach(emp => { topupSelect.innerHTML += `<option value="${emp.name}">${emp.name}</option>`; });
         }
 
         async function submitTopup() {
             const empName = document.getElementById('topup-emp').value;
             const amountStr = document.getElementById('topup-amount').value;
-            if (!empName || !amountStr) { alert('請填妥員工與收款金額！'); return; }
+            const customDate = document.getElementById('topup-date').value; 
+            
+            if (!empName || !amountStr || !customDate) { alert('請填妥員工、日期與收款金額！'); return; }
 
             const amount = parseFloat(amountStr);
             document.getElementById('global-loading').classList.remove('hidden');
@@ -644,7 +549,9 @@
             const batch = db.batch();
             const topupRef = db.collection("Topups").doc();
             const now = new Date();
-            const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            
+            // 使用自訂日期
+            const localDate = customDate;
 
             batch.set(topupRef, {
                 empName: empName,
@@ -666,18 +573,10 @@
         function renderTopupHistory() {
             const historyContainer = document.getElementById('topup-history');
             historyContainer.innerHTML = '';
-
-            if (appData.topups.length === 0) {
-                historyContainer.innerHTML = '<p class="text-xs text-stone-400 text-center py-4">尚無收款紀錄</p>';
-                return;
-            }
+            if (appData.topups.length === 0) { historyContainer.innerHTML = '<p class="text-xs text-stone-400 text-center py-4">尚無收款紀錄</p>'; return; }
 
             let grouped = {};
-            appData.topups.forEach(t => {
-                let month = t.date.substring(0, 7);
-                if (!grouped[month]) grouped[month] = [];
-                grouped[month].push(t);
-            });
+            appData.topups.forEach(t => { let month = t.date.substring(0, 7); if (!grouped[month]) grouped[month] = []; grouped[month].push(t); });
 
             for (let month in grouped) {
                 let monthHtml = `<div class="mb-4 last:mb-0 relative z-10"><h4 class="text-xs font-bold text-[#C85A44] mb-2 border-b border-orange-100/40 pb-1 ml-1">${month}</h4><div class="space-y-2">`;
@@ -713,8 +612,7 @@
             if (empIdx > -1) { appData.employees[empIdx].balance = appData.employees[empIdx].balance - oldAmount + newAmount; }
             batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
 
-            await batch.commit();
-            renderAll();
+            await batch.commit(); renderAll();
         }
 
         async function cancelTopup(id, empName, amount) {
@@ -722,17 +620,13 @@
                 document.getElementById('global-loading').classList.remove('hidden');
                 const batch = db.batch();
                 batch.delete(db.collection("Topups").doc(id));
-
                 const empIdx = appData.employees.findIndex(e => e.name === empName);
                 if (empIdx > -1) { appData.employees[empIdx].balance -= amount; }
                 batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
-
-                await batch.commit();
-                renderAll();
+                await batch.commit(); renderAll();
             }
         }
 
-        // 修改區：隱藏空行日期的 Excel 匯出邏輯 (加強過濾版)
         async function exportToExcel() {
             let currentMonthStr = selectedDate.substring(0,7);
             let targetMonth = prompt("請輸入要匯出的月份 (格式 YYYY-MM)：", currentMonthStr);
@@ -741,7 +635,6 @@
             document.getElementById('global-loading').classList.remove('hidden');
             const workbook = new ExcelJS.Workbook();
             const sheet = workbook.addWorksheet('當月對帳總表');
-
             const daysInMonth = new Date(targetMonth.substring(0,4), targetMonth.substring(5,7), 0).getDate();
 
             try {
@@ -753,23 +646,13 @@
                 const monthOrders = allOrders.filter(o => o.date && o.date.startsWith(targetMonth));
                 const monthTopups = allTopups.filter(t => t.date && t.date.startsWith(targetMonth));
 
-                // 🌟 更嚴格的過濾邏輯：確保該日期「全公司總扣款金額大於 0」才顯示該欄位 🌟
                 let activeDays = [];
                 for(let d=1; d<=daysInMonth; d++) {
                     const dateStr = `${targetMonth}-${String(d).padStart(2, '0')}`;
-                    
-                    // 加總當天所有訂單的金額 (使用 Number 確保文字格式的金額也能正確加總)
-                    const dailyTotalSpent = monthOrders
-                        .filter(o => o.date === dateStr)
-                        .reduce((sum, o) => sum + (Number(o.price) || 0), 0);
-                    
-                    // 只有當天總花費大於 0 (真的有扣到錢)，才把這天加入顯示清單
-                    if (dailyTotalSpent > 0) {
-                        activeDays.push(d);
-                    }
+                    const dailyTotalSpent = monthOrders.filter(o => o.date === dateStr).reduce((sum, o) => sum + (Number(o.price) || 0), 0);
+                    if (dailyTotalSpent > 0) { activeDays.push(d); }
                 }
 
-                // 動態產生欄位：只加入 activeDays 裡面的日期
                 let columns = [
                     { header: '員工姓名', key: 'name', width: 14 },
                     { header: '上月結存', key: 'lastMonthBal', width: 12 }, 
@@ -777,11 +660,7 @@
                     { header: '本月餐費總計', key: 'spend', width: 16 },
                     { header: '尚存餘額', key: 'currentMonthBal', width: 16 }
                 ];
-                
-                activeDays.forEach(d => { 
-                    columns.push({ header: d + '號', key: 'd' + d, width: 6 }); 
-                });
-                
+                activeDays.forEach(d => { columns.push({ header: d + '號', key: 'd' + d, width: 6 }); });
                 sheet.columns = columns;
 
                 sheet.getRow(1).eachCell(cell => {
@@ -804,7 +683,6 @@
                     const totalSpend = empMonthOrders.reduce((sum, o) => sum + (Number(o.price) || 0), 0);
                     const totalTopup = empMonthTopups.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
                     const spendVal = totalSpend > 0 ? -totalSpend : 0; 
-                    
                     const currentMonthEndBalance = lastMonthBalance + totalTopup - totalSpend;
 
                     let rowData = {
@@ -815,7 +693,6 @@
                         currentMonthBal: currentMonthEndBalance % 1 === 0 ? currentMonthEndBalance : Number(currentMonthEndBalance.toFixed(1))
                     };
 
-                    // 只填入 activeDays 的資料
                     activeDays.forEach(d => {
                         const dateStr = `${targetMonth}-${String(d).padStart(2, '0')}`;
                         const dailyOrders = empMonthOrders.filter(o => o.date === dateStr);
@@ -824,13 +701,10 @@
                     });
 
                     let row = sheet.addRow(rowData);
-
                     row.eachCell((cell, colNumber) => {
                         cell.alignment = { vertical: 'middle', horizontal: 'center' };
                         cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-                        if (typeof cell.value === 'number' && cell.value < 0) {
-                            cell.font = { color: { argb: 'FFFF0000' } };
-                        }
+                        if (typeof cell.value === 'number' && cell.value < 0) { cell.font = { color: { argb: 'FFFF0000' } }; }
                     });
                 });
 
@@ -840,10 +714,7 @@
                 link.href = URL.createObjectURL(blob);
                 link.download = `午餐結算總表_${targetMonth}.xlsx`;
                 link.click();
-            } catch(e) {
-                alert("報表產生失敗，請檢查網路連線");
-                console.error(e);
-            }
+            } catch(e) { alert("報表產生失敗，請檢查網路連線"); console.error(e); }
             document.getElementById('global-loading').classList.add('hidden');
         }
 
@@ -851,72 +722,34 @@
             let text = `🍱 【午餐帳務結算】 ${selectedDate.replace(/-/g, '/')}
 ══════════════════
 `;
-            let itemCounts = {};
-            let totalAmount = 0;
-
+            let itemCounts = {}; let totalAmount = 0;
             appData.orders.forEach(order => {
                 if (order.food !== "未點餐") {
                     totalAmount += order.price;
-                    text += `👤 ${order.empName}：${order.food} [$${formatPrice(order.price)}]
-`;
-                    
-                    const items = order.food.split('+');
-                    items.forEach(itemName => {
-                        if (!itemCounts[itemName]) itemCounts[itemName] = 0;
-                        itemCounts[itemName] += (1 / order.shared);
-                    });
-                } else {
-                    text += `👤 ${order.empName}：本日未點餐 💤
-`;
-                }
+                    text += `👤 ${order.empName}：${order.food} [$${formatPrice(order.price)}]\n`;
+                    order.food.split('+').forEach(itemName => { if (!itemCounts[itemName]) itemCounts[itemName] = 0; itemCounts[itemName] += (1 / order.shared); });
+                } else { text += `👤 ${order.empName}：本日未點餐 💤\n`; }
             });
-
-            text += `══════════════════
-📊 【便當預訂總統計組數】
-`;
-            for (let itemName in itemCounts) {
-                text += `▪️ ${itemName} × ${formatPrice(itemCounts[itemName])} 份
-`;
-            }
-            text += `══════════════════
-💰 今日現金總計：$${formatPrice(totalAmount)} 元`;
-
+            text += `══════════════════\n📊 【便當預訂總統計組數】\n`;
+            for (let itemName in itemCounts) { text += `▪️ ${itemName} × ${formatPrice(itemCounts[itemName])} 份\n`; }
+            text += `══════════════════\n💰 今日現金總計：$${formatPrice(totalAmount)} 元`;
             window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`);
         }
 
         function showQAnimation(isManualClick = false) {
             const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
             const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
-
-            let speech = "";
-            if (pendingEmpsCount > 0) {
-                speech = `老闆！還有 ${pendingEmpsCount} 位員工還沒決定午餐喔！快催催他們～`;
-            } else {
-                const lines = [
-                    "太棒了！今天所有同仁的午餐都已經完美登錄完畢囉！✨",
-                    "點餐收單！別忘了打電話跟便當店訂餐喔～📞",
-                    "大功告成！今天大家都有飯吃了，小幫手祝您用餐愉快！🍱"
-                ];
-                speech = isManualClick ? lines[Math.floor(Math.random() * lines.length)] : lines[0];
-            }
-
+            let speech = pendingEmpsCount > 0 ? `老闆！還有 ${pendingEmpsCount} 位員工還沒決定午餐喔！快催催他們～` : (isManualClick ? ["太棒了！今天所有同仁的午餐都已經完美登錄完畢囉！✨", "點餐收單！別忘了打電話跟便當店訂餐喔～📞", "大功告成！今天大家都有飯吃了，小幫手祝您用餐愉快！🍱"][Math.floor(Math.random() * 3)] : "太棒了！今天所有同仁的午餐都已經完美登錄完畢囉！✨");
             document.getElementById('q-speech-text').innerText = speech;
             document.getElementById('q-animation-overlay').classList.remove('hidden');
         }
 
-        function closeQAnimation() {
-            document.getElementById('q-animation-overlay').classList.add('hidden');
-        }
+        function closeQAnimation() { document.getElementById('q-animation-overlay').classList.add('hidden'); }
 
         function switchTab(viewId) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden-view'));
             document.getElementById(viewId).classList.remove('hidden-view');
-            
-            document.querySelectorAll('nav button').forEach(b => {
-                b.classList.remove('nav-active');
-                b.classList.add('nav-inactive');
-            });
-            
+            document.querySelectorAll('nav button').forEach(b => { b.classList.remove('nav-active'); b.classList.add('nav-inactive'); });
             if(viewId === 'view-pos') document.getElementById('tab-pos').className = document.getElementById('tab-pos').className.replace('nav-inactive', 'nav-active');
             if(viewId === 'view-ledger') document.getElementById('tab-ledger').className = document.getElementById('tab-ledger').className.replace('nav-inactive', 'nav-active');
             if(viewId === 'view-settings') document.getElementById('tab-settings').className = document.getElementById('tab-settings').className.replace('nav-inactive', 'nav-active');
@@ -925,7 +758,6 @@
         function renderSettings() {
             const empSettingContainer = document.getElementById('setting-employees');
             empSettingContainer.innerHTML = '';
-            
             appData.employees.forEach((emp, i) => {
                 const balColor = emp.balance < 0 ? 'text-red-500' : 'text-green-600';
                 empSettingContainer.innerHTML += `
@@ -949,7 +781,6 @@
 
             const storeSettingContainer = document.getElementById('setting-stores');
             storeSettingContainer.innerHTML = '';
-            
             appData.stores.forEach((store, sIdx) => {
                 let menuHtml = '';
                 store.menu.forEach((item, mIdx) => {
@@ -993,7 +824,6 @@
         function deleteEmployee(i) { if(confirm(`確定刪除 ${appData.employees[i].name} 嗎？`)) updateSettingsAction(() => appData.employees.splice(i, 1)); }
         function moveEmpUp(i) { if(i===0)return; updateSettingsAction(() => { let temp = appData.employees[i]; appData.employees[i] = appData.employees[i-1]; appData.employees[i-1] = temp; }); }
         function moveEmpDown(i) { if(i===appData.employees.length-1)return; updateSettingsAction(() => { let temp = appData.employees[i]; appData.employees[i] = appData.employees[i+1]; appData.employees[i+1] = temp; }); }
-        
         function addStore() { const name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => appData.stores.push({id: 'store_' + Date.now(), name: name, menu: []})); }
         function deleteStore(sIdx) { if(confirm(`確定刪除店家「${appData.stores[sIdx].name}」及旗下整張菜單嗎？`)) updateSettingsAction(() => appData.stores.splice(sIdx, 1)); }
         function addMenuItem(sIdx) { const name = prompt("餐點名稱："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[sIdx].menu.push({name: name, price: parseFloat(price)})); }
