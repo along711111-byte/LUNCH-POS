@@ -21,6 +21,7 @@
         }
         .hidden-view { display: none !important; }
         
+        /* 視覺優化：高透視感調整 */
         .glass-panel { background: rgba(255, 252, 248, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(210, 180, 160, 0.4); box-shadow: 0 8px 30px rgba(100, 70, 50, 0.08); }
         .glass-nav { background: rgba(255, 252, 248, 0.70); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(210, 180, 160, 0.4); }
         
@@ -60,6 +61,7 @@
 </head>
 <body class="p-4 pb-24 max-w-md mx-auto min-h-screen flex flex-col justify-between select-none">
 
+    <!-- 語音動態與小幫手區 -->
     <div id="q-animation-overlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-6" onclick="closeQAnimation()">
         <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-orange-100 flex flex-col items-center relative animate-fade-in-up" onclick="event.stopPropagation()">
             <div class="relative w-24 h-24 mb-4">
@@ -71,22 +73,27 @@
         </div>
     </div>
 
+    <!-- 頂部加載指示器 -->
     <div id="global-loading" class="fixed inset-0 bg-white/80 backdrop-blur-xs z-50 flex flex-col items-center justify-center transition-all duration-300">
         <svg class="w-12 h-12 mb-4 animate-spin text-[#C85A44]" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         <h2 class="text-lg font-bold tracking-widest text-[#4A3E3D]" id="loading-text">系統連線中...</h2>
     </div>
 
+    <!-- 核心內容區 -->
     <main class="flex-grow">
+        <!-- TAB 1: 點餐與明細 -->
         <div id="view-pos" class="view-section space-y-4">
             <div class="flex justify-between items-center mb-1">
                 <input type="date" id="order-date" onchange="changeDate()" class="text-sm font-medium text-[#C85A44] bg-white/60 px-3 py-1.5 rounded-full border-none outline-none shadow-sm focus:ring-2 focus:ring-orange-300 transition">
             </div>
 
+            <!-- 店家選擇器 -->
             <div class="relative">
                 <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20"></select>
                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-[#C85A44]"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
             </div>
 
+            <!-- 未點餐員工按鈕面板 -->
             <div class="glass-panel rounded-3xl p-4">
                 <div class="flex items-center text-[#C85A44] font-bold text-sm mb-3">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
@@ -95,12 +102,14 @@
                 <div id="pending-employees" class="grid grid-cols-3 gap-2.5"></div>
             </div>
 
+            <!-- 菜單點擊面板 -->
             <div class="glass-panel rounded-3xl p-4">
                 <div class="flex items-center text-[#C85A44] font-bold text-sm mb-3 justify-between">
                     <div class="flex items-center">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
                         選擇餐點
                     </div>
+                    <!-- 共食與備註區 -->
                     <div class="flex items-center space-x-3 bg-white/50 px-3 py-1 rounded-full border border-orange-100/50">
                         <label class="flex items-center text-xs font-bold text-stone-600 cursor-pointer">
                             <input type="checkbox" id="cart-is-shared" onchange="updateCartInfo()" class="mr-1.5 rounded"> 👥 共食
@@ -115,6 +124,7 @@
 
                 <div id="current-menu" class="grid grid-cols-2 gap-2.5"></div>
                 
+                <!-- 購物車即時緩衝明細 -->
                 <div id="cart-preview-box" class="mt-4 bg-gradient-to-br from-[#D97055] to-[#C85A44] rounded-2xl p-4 text-white shadow-md hidden animate-fade-in">
                     <div id="cart-items-list" class="space-y-1.5 text-sm font-medium border-b border-white/20 pb-2.5 mb-2.5"></div>
                     <div class="flex justify-between items-center">
@@ -127,6 +137,7 @@
                 </div>
             </div>
 
+            <!-- 今日已點餐明細 -->
             <div>
                 <div class="flex justify-between items-center mb-3 px-1">
                     <h3 class="text-sm font-bold text-[#4A3E3D] flex items-center">
@@ -137,6 +148,7 @@
                 <div id="completed-orders" class="space-y-2 mb-6"></div>
                 <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
                 
+                <!-- 常駐溫馨提示 -->
                 <div id="pos-summary-info" class="mt-4 pt-3 border-t border-orange-100/50 flex items-center justify-between text-xs text-[#C85A44] font-bold hidden">
                     <div class="flex items-center justify-between w-full cursor-pointer bg-white/50 hover:bg-white/70 border border-orange-100/50 p-3 rounded-xl transition backdrop-blur-sm" onclick="showQAnimation(true)">
                         <span class="text-xs text-[#C85A44] font-bold" id="reminder-text">💡 溫馨提醒：點餐已全部處理完畢！</span>
@@ -146,18 +158,21 @@
             </div>
         </div>
 
+        <!-- TAB 2: 全體存摺與報表 -->
         <div id="view-ledger" class="view-section hidden-view space-y-4">
+            <!-- 管理數據看版 -->
             <div class="bg-gradient-to-br from-orange-50/60 to-amber-50/60 p-5 rounded-3xl flex justify-between items-center border border-orange-100/40 shadow-sm opacity-90 backdrop-blur-sm relative">
                 <div>
                     <span class="text-stone-500 text-xs">應有現金總額</span>
                     <div id="admin-cash-on-hand" class="text-2xl font-black text-orange-500">$0</div>
                 </div>
                 <div class="text-right">
-                    <span class="text-stone-400 text-[10px] block">系統核心架構 v3.8 Clean</span>
+                    <span class="text-stone-400 text-[10px] block">系統核心架構 v4.0 Clean</span>
                     <span class="text-stone-400 text-[10px] block">月報結算精準對齊版</span>
                 </div>
             </div>
 
+            <!-- 功能按鈕 -->
             <div class="flex space-x-3">
                 <button onclick="shareToLine()" class="btn-active w-1/2 bg-white/70 text-[#C85A44] border border-orange-200 py-3.5 rounded-2xl font-bold shadow-sm flex flex-col justify-center items-center hover:bg-orange-50/80 transition">
                     <svg class="w-6 h-6 mb-1 text-[#06C755]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 10.3c0-4.3-4.2-7.8-9.4-7.8-5.2 0-9.4 3.5-9.4 7.8 0 3.8 2.6 7 6.3 7.6l1.3.4s-.4 1.4-.4 1.6c-.1.5.3.8.3.8l3.6-2.4 1.3-.9c1.9.1 6.4-2.7 6.4-7.1z"/></svg>
@@ -169,6 +184,7 @@
                 </button>
             </div>
 
+            <!-- 收款登錄快切 -->
             <div class="glass-panel rounded-3xl p-4 space-y-3">
                 <div class="flex items-center text-[#C85A44] font-bold text-sm">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -181,6 +197,7 @@
                 </div>
             </div>
 
+            <!-- 餘額總表 -->
             <div class="glass-panel rounded-3xl overflow-hidden shadow-xs">
                 <div class="bg-orange-50/60 px-4 py-3 border-b border-orange-100/40">
                     <h3 class="text-xs font-bold theme-text">全體員工餘額表</h3>
@@ -198,6 +215,7 @@
                 </div>
             </div>
 
+            <!-- 收款紀錄 -->
             <details class="group bg-white/60 rounded-2xl border border-orange-100/50 shadow-sm overflow-hidden mt-6 transition-all duration-300 backdrop-blur-sm">
                 <summary class="list-none flex items-center justify-between p-4 text-xs font-bold text-stone-600 cursor-pointer select-none">
                     <span class="flex items-center">
@@ -210,7 +228,9 @@
             </details>
         </div>
 
+        <!-- TAB 3: 系統後台設定 -->
         <div id="view-settings" class="view-section hidden-view space-y-6">
+            <!-- 員工名單管理 -->
             <div class="glass-panel rounded-3xl p-4">
                 <div class="flex justify-between items-center mb-4 border-b border-orange-100/30 pb-3">
                     <h3 class="text-sm font-bold text-[#4A3E3D] flex items-center">
@@ -222,6 +242,7 @@
                 <div id="setting-employees" class="space-y-2.5"></div>
             </div>
 
+            <!-- 店家與菜單設定 -->
             <div class="glass-panel rounded-3xl p-4">
                 <div class="flex justify-between items-center mb-4 border-b border-orange-100/30 pb-3">
                     <h3 class="text-sm font-bold text-[#4A3E3D] flex items-center">
@@ -235,6 +256,7 @@
         </div>
     </main>
 
+    <!-- 固定底部導航列 -->
     <nav class="fixed bottom-4 left-4 right-4 glass-nav rounded-2xl flex justify-around p-2.5 shadow-[0_8px_30px_rgba(100,70,50,0.12)] border border-orange-50/50 z-40">
         <button onclick="switchTab('view-pos')" id="tab-pos" class="flex flex-col items-center p-2 w-1/3 nav-active transition rounded-xl relative z-10">
             <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
@@ -251,6 +273,7 @@
     </nav>
 
     <script>
+        // 初始化 Firebase
         const firebaseConfig = {
           apiKey: "AIzaSyCN5T3Wy5M_Ei9JY1kqgc1YzmN4UMufQQw",
           authDomain: "date-ea265.firebaseapp.com",
@@ -262,20 +285,21 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // 核心狀態
         let appData = { employees: [], stores: [], orders: [], topups: [] };
         let selectedDate = new Date().toISOString().split('T')[0];
         let currentSelectedStoreId = '';
         let selectedEmployeesForCart = new Set();
         let currentCartItems = [];
-        let hasShownHelperToday = false;
+        let hasShownHelperToday = false; 
 
+        // 格式化數字邏輯
         function formatPrice(num) {
             if (num === undefined || num === null || isNaN(num)) return "0";
             return num % 1 === 0 ? num.toString() : parseFloat(num.toFixed(1)).toString();
         }
 
         async function init() {
-            // Correctly set timezone to local for initialization
             const d = new Date();
             d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
             selectedDate = d.toISOString().split('T')[0];
@@ -283,51 +307,48 @@
             document.getElementById('order-date').value = selectedDate;
             document.getElementById('display-selected-date').innerText = selectedDate.replace(/-/g, '/');
             
+            // 監聽核心資料庫
             db.collection("System").doc("Settings").onSnapshot(doc => {
                 if (doc.exists) {
                     const data = doc.data();
                     appData.employees = data.employees || [];
                     appData.stores = data.stores || [];
-                    if(!currentSelectedStoreId && appData.stores.length > 0) currentSelectedStoreId = appData.stores[0].id;
                     renderStoreSelector();
                     renderSettings();
                     loadDailyOrdersAndTopups();
-                } else {
-                    appData.employees = [];
-                    appData.stores = [];
-                    db.collection("System").doc("Settings").set({ employees: [], stores: [] });
-                    document.getElementById('global-loading').classList.add('hidden');
                 }
+                document.getElementById('global-loading').classList.add('hidden');
             });
         }
 
         function loadDailyOrdersAndTopups() {
+            // 監聽當日訂單
             db.collection("Orders").where("date", "==", selectedDate).onSnapshot(snapshot => {
                 appData.orders = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                // 監聽收款紀錄
                 db.collection("Topups").orderBy("timestamp", "desc").onSnapshot(tSnapshot => {
                     appData.topups = tSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
                     renderAll();
-                    document.getElementById('global-loading').classList.add('hidden');
                 });
             });
         }
 
         function renderStoreSelector() {
             const selector = document.getElementById('store-selector');
+            const previousValue = selector.value;
             selector.innerHTML = '';
             appData.stores.forEach(store => {
                 selector.innerHTML += `<option value="${store.id}">選擇店家：${store.name}</option>`;
             });
-            if (currentSelectedStoreId && appData.stores.some(s => s.id === currentSelectedStoreId)) {
-                selector.value = currentSelectedStoreId;
+            if (previousValue && appData.stores.some(s => s.id === previousValue)) {
+                selector.value = previousValue;
             } else if (appData.stores.length > 0) {
                 selector.value = appData.stores[0].id;
-                currentSelectedStoreId = selector.value;
             }
+            currentSelectedStoreId = selector.value;
         }
 
         function changeDate() {
-            document.getElementById('global-loading').classList.remove('hidden');
             selectedDate = document.getElementById('order-date').value;
             document.getElementById('display-selected-date').innerText = selectedDate.replace(/-/g, '/');
             selectedEmployeesForCart.clear();
@@ -578,9 +599,9 @@
             const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
 
             if (appData.orders.length > 0 && pendingEmpsCount === 0 && !hasShownHelperToday) {
-                hasShownHelperToday = true;
+                hasShownHelperToday = true; 
                 setTimeout(() => {
-                    showQAnimation(false);
+                    showQAnimation(false); 
                 }, 600);
             }
         }
@@ -732,7 +753,7 @@
             }
         }
 
-        // --- 重點更新 2: EXCEL 報表小數點與欄位重構 ---
+        // 修改區：隱藏空行日期的 Excel 匯出邏輯
         async function exportToExcel() {
             let currentMonthStr = selectedDate.substring(0,7);
             let targetMonth = prompt("請輸入要匯出的月份 (格式 YYYY-MM)：", currentMonthStr);
@@ -744,46 +765,61 @@
 
             const daysInMonth = new Date(targetMonth.substring(0,4), targetMonth.substring(5,7), 0).getDate();
 
-            let columns = [
-                { header: '員工姓名', key: 'name', width: 14 },
-                { header: '上月結存', key: 'lastMonthBal', width: 12 }, 
-                { header: '本月總儲值', key: 'topup', width: 15 },
-                { header: '本月餐費總計', key: 'spend', width: 16 },
-                { header: '目前餘額(月底)', key: 'currentMonthBal', width: 16 } // 取代舊有的系統餘額
-            ];
-            for(let d=1; d<=daysInMonth; d++) { columns.push({ header: d + '號', key: 'd' + d, width: 6 }); }
-            sheet.columns = columns;
-
-            sheet.getRow(1).eachCell(cell => {
-                cell.font = { bold: true };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7F3' } }; 
-                cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-            });
-
             try {
                 const ordersSnapshot = await db.collection("Orders").get();
                 const allOrders = ordersSnapshot.docs.map(d => d.data());
                 const topupsSnapshot = await db.collection("Topups").get();
                 const allTopups = topupsSnapshot.docs.map(d => d.data());
 
+                const monthOrders = allOrders.filter(o => o.date.startsWith(targetMonth));
+                const monthTopups = allTopups.filter(t => t.date.startsWith(targetMonth));
+
+                // 🌟 新增邏輯：找出哪些日期「有實際點餐扣款」 🌟
+                let activeDays = [];
+                for(let d=1; d<=daysInMonth; d++) {
+                    const dateStr = `${targetMonth}-${String(d).padStart(2, '0')}`;
+                    // 如果這一天有人點餐 (且不是未點餐 0 元)，就將這天加入 activeDays
+                    if (monthOrders.some(o => o.date === dateStr && o.price > 0)) {
+                        activeDays.push(d);
+                    }
+                }
+
+                // 動態產生欄位：只加入 activeDays 裡面的日期
+                let columns = [
+                    { header: '員工姓名', key: 'name', width: 14 },
+                    { header: '上月結存', key: 'lastMonthBal', width: 12 }, 
+                    { header: '本月總儲值', key: 'topup', width: 15 },
+                    { header: '本月餐費總計', key: 'spend', width: 16 },
+                    { header: '尚存餘額', key: 'currentMonthBal', width: 16 }
+                ];
+                
+                activeDays.forEach(d => { 
+                    columns.push({ header: d + '號', key: 'd' + d, width: 6 }); 
+                });
+                
+                sheet.columns = columns;
+
+                sheet.getRow(1).eachCell(cell => {
+                    cell.font = { bold: true };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7F3' } }; 
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                });
+
                 appData.employees.forEach(emp => {
-                    // 1. 撈取目標月份之前的所有歷史紀錄計算「上月結存」
                     const priorOrders = allOrders.filter(o => o.empName === emp.name && o.date < `${targetMonth}-01`);
                     const priorOrdersSpent = priorOrders.reduce((sum, o) => sum + o.price, 0);
                     const priorTopups = allTopups.filter(t => t.empName === emp.name && t.date < `${targetMonth}-01`);
                     const priorTopupsReceived = priorTopups.reduce((sum, t) => sum + t.amount, 0);
                     const lastMonthBalance = priorTopupsReceived - priorOrdersSpent;
 
-                    // 2. 統計目標月份的儲值與消費
-                    const monthOrders = allOrders.filter(o => o.empName === emp.name && o.date.startsWith(targetMonth));
-                    const monthTopups = allTopups.filter(t => t.empName === emp.name && t.date.startsWith(targetMonth));
+                    const empMonthOrders = monthOrders.filter(o => o.empName === emp.name);
+                    const empMonthTopups = monthTopups.filter(t => t.empName === emp.name);
                     
-                    const totalSpend = monthOrders.reduce((sum, o) => sum + o.price, 0);
-                    const totalTopup = monthTopups.reduce((sum, t) => sum + t.amount, 0);
+                    const totalSpend = empMonthOrders.reduce((sum, o) => sum + o.price, 0);
+                    const totalTopup = empMonthTopups.reduce((sum, t) => sum + t.amount, 0);
                     const spendVal = totalSpend > 0 ? -totalSpend : 0; 
                     
-                    // 3. 計算目標月份的精準月底餘額：上月結存 + 本月儲值 - 本月花費
                     const currentMonthEndBalance = lastMonthBalance + totalTopup - totalSpend;
 
                     let rowData = {
@@ -794,12 +830,13 @@
                         currentMonthBal: currentMonthEndBalance % 1 === 0 ? currentMonthEndBalance : Number(currentMonthEndBalance.toFixed(1))
                     };
 
-                    for(let d=1; d<=daysInMonth; d++) {
+                    // 只填入 activeDays 的資料
+                    activeDays.forEach(d => {
                         const dateStr = `${targetMonth}-${String(d).padStart(2, '0')}`;
-                        const dailyOrders = monthOrders.filter(o => o.date === dateStr);
+                        const dailyOrders = empMonthOrders.filter(o => o.date === dateStr);
                         const dailySpend = dailyOrders.reduce((sum, o) => sum + o.price, 0);
                         rowData['d' + d] = dailySpend > 0 ? (-dailySpend % 1 === 0 ? -dailySpend : Number((-dailySpend).toFixed(1))) : '';
-                    }
+                    });
 
                     let row = sheet.addRow(rowData);
 
@@ -826,14 +863,17 @@
         }
 
         function shareToLine() {
-            let text = `🍱 【午餐帳務結算】 ${selectedDate.replace(/-/g, '/')}\n══════════════════\n`;
+            let text = `🍱 【午餐帳務結算】 ${selectedDate.replace(/-/g, '/')}
+══════════════════
+`;
             let itemCounts = {};
             let totalAmount = 0;
 
             appData.orders.forEach(order => {
                 if (order.food !== "未點餐") {
                     totalAmount += order.price;
-                    text += `👤 ${order.empName}：${order.food} [$${formatPrice(order.price)}]\n`;
+                    text += `👤 ${order.empName}：${order.food} [$${formatPrice(order.price)}]
+`;
                     
                     const items = order.food.split('+');
                     items.forEach(itemName => {
@@ -841,15 +881,20 @@
                         itemCounts[itemName] += (1 / order.shared);
                     });
                 } else {
-                    text += `👤 ${order.empName}：本日未點餐 💤\n`;
+                    text += `👤 ${order.empName}：本日未點餐 💤
+`;
                 }
             });
 
-            text += `══════════════════\n📊 【便當預訂總統計組數】\n`;
+            text += `══════════════════
+📊 【便當預訂總統計組數】
+`;
             for (let itemName in itemCounts) {
-                text += `▪️ ${itemName} × ${formatPrice(itemCounts[itemName])} 份\n`;
+                text += `▪️ ${itemName} × ${formatPrice(itemCounts[itemName])} 份
+`;
             }
-            text += `══════════════════\n💰 今日現金總計：$${formatPrice(totalAmount)} 元`;
+            text += `══════════════════
+💰 今日現金總計：$${formatPrice(totalAmount)} 元`;
 
             window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`);
         }
