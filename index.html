@@ -254,6 +254,10 @@
         let selectedEmployeesForCart = new Set();
         let currentCartItems = [];
         let hasShownHelperToday = false; 
+        
+        // 【修正重點】宣告全域取消訂閱的變數，防止監聽器疊加爆量
+        let unsubOrders = null;
+        let unsubTopups = null;
 
         function formatPrice(num) {
             if (num === undefined || num === null || isNaN(num)) return "0";
@@ -266,7 +270,7 @@
             selectedDate = d.toISOString().split('T')[0];
             
             document.getElementById('order-date').value = selectedDate;
-            document.getElementById('topup-date').value = selectedDate; // 同步預設今天
+            document.getElementById('topup-date').value = selectedDate; 
             document.getElementById('display-selected-date').innerText = selectedDate.replace(/-/g, '/');
             
             db.collection("System").doc("Settings").onSnapshot(doc => {
@@ -276,19 +280,28 @@
                     appData.stores = data.stores || [];
                     renderStoreSelector();
                     renderSettings();
-                    loadDailyOrdersAndTopups();
+                    renderAll(); // 單純重新渲染，不再重複呼叫監聽器
                 }
                 document.getElementById('global-loading').classList.add('hidden');
             });
+            
+            // 【修正重點】獨立於 Settings 之外，只在初始化與換日期時呼叫一次
+            loadDailyOrdersAndTopups();
         }
 
         function loadDailyOrdersAndTopups() {
-            db.collection("Orders").where("date", "==", selectedDate).onSnapshot(snapshot => {
+            // 切換日期或重新讀取時，先清空先前的監聽器，避免無限繁殖
+            if (unsubOrders) unsubOrders();
+            if (unsubTopups) unsubTopups();
+            
+            unsubOrders = db.collection("Orders").where("date", "==", selectedDate).onSnapshot(snapshot => {
                 appData.orders = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
-                db.collection("Topups").orderBy("timestamp", "desc").onSnapshot(tSnapshot => {
-                    appData.topups = tSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
-                    renderAll();
-                });
+                renderAll();
+            });
+
+            unsubTopups = db.collection("Topups").orderBy("timestamp", "desc").onSnapshot(tSnapshot => {
+                appData.topups = tSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                renderAll();
             });
         }
 
@@ -310,11 +323,12 @@
         function changeDate() {
             selectedDate = document.getElementById('order-date').value;
             document.getElementById('display-selected-date').innerText = selectedDate.replace(/-/g, '/');
-            document.getElementById('topup-date').value = selectedDate; // 切換日期時順便連動收款日期
+            document.getElementById('topup-date').value = selectedDate; 
             selectedEmployeesForCart.clear();
             currentCartItems = [];
             hasShownHelperToday = false; 
             updateCartInfo();
+            // 換日期時，重新掛載對應日期的監聽器
             loadDailyOrdersAndTopups();
         }
 
@@ -412,27 +426,32 @@
             if (selectedEmployeesForCart.size === 0 || currentCartItems.length === 0) return;
             document.getElementById('global-loading').classList.remove('hidden');
 
-            const isShared = document.getElementById('cart-is-shared').checked;
-            let cartBaseTotal = currentCartItems.reduce((sum, item) => sum + item.price, 0);
-            let perPersonAmount = isShared ? (cartBaseTotal / selectedEmployeesForCart.size) : cartBaseTotal;
+            try {
+                const isShared = document.getElementById('cart-is-shared').checked;
+                let cartBaseTotal = currentCartItems.reduce((sum, item) => sum + item.price, 0);
+                let perPersonAmount = isShared ? (cartBaseTotal / selectedEmployeesForCart.size) : cartBaseTotal;
 
-            const batch = db.batch();
-            const foodNames = currentCartItems.map(i => i.name).join('+');
-            const sharedCount = isShared ? selectedEmployeesForCart.size : 1;
+                const batch = db.batch();
+                const foodNames = currentCartItems.map(i => i.name).join('+');
+                const sharedCount = isShared ? selectedEmployeesForCart.size : 1;
 
-            for (let empName of selectedEmployeesForCart) {
-                const orderRef = db.collection("Orders").doc();
-                batch.set(orderRef, { date: selectedDate, empName: empName, food: foodNames, price: perPersonAmount, shared: sharedCount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+                for (let empName of selectedEmployeesForCart) {
+                    const orderRef = db.collection("Orders").doc();
+                    batch.set(orderRef, { date: selectedDate, empName: empName, food: foodNames, price: perPersonAmount, shared: sharedCount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
 
-                const empIdx = appData.employees.findIndex(e => e.name === empName);
-                if (empIdx > -1) { appData.employees[empIdx].balance -= perPersonAmount; }
+                    const empIdx = appData.employees.findIndex(e => e.name === empName);
+                    if (empIdx > -1) { appData.employees[empIdx].balance -= perPersonAmount; }
+                }
+
+                batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+                await batch.commit();
+
+                selectedEmployeesForCart.clear(); currentCartItems = []; document.getElementById('cart-is-shared').checked = false;
+                updateCartInfo(); renderAll();
+            } finally {
+                // 【修正重點】使用 finally 確保不管成功或斷線，讀取畫面絕對會關閉
+                document.getElementById('global-loading').classList.add('hidden');
             }
-
-            batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
-            await batch.commit();
-
-            selectedEmployeesForCart.clear(); currentCartItems = []; document.getElementById('cart-is-shared').checked = false;
-            updateCartInfo(); renderAll();
         }
 
         function renderCompletedOrders() {
@@ -503,12 +522,16 @@
         async function cancelOrder(orderId, empName, price) {
             if (confirm(price === 0 ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${formatPrice(price)} 退回給 ${empName} 嗎？`)) {
                 document.getElementById('global-loading').classList.remove('hidden');
-                const batch = db.batch();
-                batch.delete(db.collection("Orders").doc(orderId));
-                const empIdx = appData.employees.findIndex(e => e.name === empName);
-                if (empIdx > -1) { appData.employees[empIdx].balance += price; }
-                batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
-                await batch.commit(); renderAll();
+                try {
+                    const batch = db.batch();
+                    batch.delete(db.collection("Orders").doc(orderId));
+                    const empIdx = appData.employees.findIndex(e => e.name === empName);
+                    if (empIdx > -1) { appData.employees[empIdx].balance += price; }
+                    batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+                    await batch.commit(); renderAll();
+                } finally {
+                    document.getElementById('global-loading').classList.add('hidden');
+                }
             }
         }
 
@@ -546,28 +569,31 @@
             const amount = parseFloat(amountStr);
             document.getElementById('global-loading').classList.remove('hidden');
 
-            const batch = db.batch();
-            const topupRef = db.collection("Topups").doc();
-            const now = new Date();
-            
-            // 使用自訂日期
-            const localDate = customDate;
+            try {
+                const batch = db.batch();
+                const topupRef = db.collection("Topups").doc();
+                const now = new Date();
+                
+                const localDate = customDate;
 
-            batch.set(topupRef, {
-                empName: empName,
-                amount: amount,
-                date: localDate,
-                time: now.toTimeString().substring(0, 5),
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
+                batch.set(topupRef, {
+                    empName: empName,
+                    amount: amount,
+                    date: localDate,
+                    time: now.toTimeString().substring(0, 5),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-            const empIdx = appData.employees.findIndex(e => e.name === empName);
-            if (empIdx > -1) { appData.employees[empIdx].balance += amount; }
-            batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+                const empIdx = appData.employees.findIndex(e => e.name === empName);
+                if (empIdx > -1) { appData.employees[empIdx].balance += amount; }
+                batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
 
-            await batch.commit();
-            document.getElementById('topup-amount').value = '';
-            renderAll();
+                await batch.commit();
+                document.getElementById('topup-amount').value = '';
+                renderAll();
+            } finally {
+                document.getElementById('global-loading').classList.add('hidden');
+            }
         }
 
         function renderTopupHistory() {
@@ -605,25 +631,33 @@
             const newAmount = parseFloat(newAmountStr);
 
             document.getElementById('global-loading').classList.remove('hidden');
-            const batch = db.batch();
-            batch.update(db.collection("Topups").doc(id), { amount: newAmount });
+            try {
+                const batch = db.batch();
+                batch.update(db.collection("Topups").doc(id), { amount: newAmount });
 
-            const empIdx = appData.employees.findIndex(e => e.name === empName);
-            if (empIdx > -1) { appData.employees[empIdx].balance = appData.employees[empIdx].balance - oldAmount + newAmount; }
-            batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+                const empIdx = appData.employees.findIndex(e => e.name === empName);
+                if (empIdx > -1) { appData.employees[empIdx].balance = appData.employees[empIdx].balance - oldAmount + newAmount; }
+                batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
 
-            await batch.commit(); renderAll();
+                await batch.commit(); renderAll();
+            } finally {
+                document.getElementById('global-loading').classList.add('hidden');
+            }
         }
 
         async function cancelTopup(id, empName, amount) {
             if (confirm(`確定要刪除「${empName}」這筆 $${formatPrice(amount)} 的收款紀錄嗎？(員工餘額將會被扣回)`)) {
                 document.getElementById('global-loading').classList.remove('hidden');
-                const batch = db.batch();
-                batch.delete(db.collection("Topups").doc(id));
-                const empIdx = appData.employees.findIndex(e => e.name === empName);
-                if (empIdx > -1) { appData.employees[empIdx].balance -= amount; }
-                batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
-                await batch.commit(); renderAll();
+                try {
+                    const batch = db.batch();
+                    batch.delete(db.collection("Topups").doc(id));
+                    const empIdx = appData.employees.findIndex(e => e.name === empName);
+                    if (empIdx > -1) { appData.employees[empIdx].balance -= amount; }
+                    batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+                    await batch.commit(); renderAll();
+                } finally {
+                    document.getElementById('global-loading').classList.add('hidden');
+                }
             }
         }
 
@@ -814,9 +848,13 @@
 
         async function updateSettingsAction(callback) {
             document.getElementById('global-loading').classList.remove('hidden');
-            callback();
-            await db.collection("System").doc("Settings").set(appData);
-            renderAll();
+            try {
+                callback();
+                await db.collection("System").doc("Settings").set(appData);
+                renderAll();
+            } finally {
+                document.getElementById('global-loading').classList.add('hidden');
+            }
         }
 
         function addEmployee() { const name = prompt("請輸入新員工姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: name, balance: 0})); }
