@@ -40,7 +40,6 @@
         .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); } 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         
-        /* 已經移除強制隱藏的 display: none; 修復小幫手出不來的問題 */
         #loading-overlay { position: fixed; inset: 0; background: rgba(253, 249, 245, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #C85A44; text-align: center; }
         #q-animation-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100000; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
         
@@ -370,7 +369,6 @@
             renderPendingEmployees();
         }
 
-        // 新增的「一鍵全選」功能
         function selectAllPending() {
             const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
             const pendingEmps = appData.employees.filter(emp => !orderedEmpNames.has(emp.name));
@@ -532,6 +530,36 @@
                 setTimeout(() => { showQAnimation(false); }, 600);
             }
         }
+
+        // 修改這裡：更新小幫手顯示文字邏輯
+        function showQAnimation(isManualClick = false) {
+            const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
+            const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
+            
+            let orderingEmps = new Set();
+            let sharedEmps = new Set();
+            
+            appData.orders.forEach(order => {
+                if (order.food !== "未點餐") {
+                    orderingEmps.add(order.empName);
+                    if (order.shared > 1) {
+                        sharedEmps.add(order.empName);
+                    }
+                }
+            });
+
+            let speech = "";
+            if (pendingEmpsCount > 0) {
+                speech = `老闆！還有 ${pendingEmpsCount} 位員工還沒決定午餐喔！快催催他們～`;
+            } else {
+                speech = `太棒了！今天總共 ${orderingEmps.size} 個人點餐，${sharedEmps.size} 個人共食。午餐完美登錄完畢囉！✨`;
+            }
+
+            document.getElementById('q-speech-text').innerText = speech;
+            document.getElementById('q-animation-overlay').classList.remove('hidden');
+        }
+
+        function closeQAnimation() { document.getElementById('q-animation-overlay').classList.add('hidden'); }
 
         async function cancelOrder(orderId, empName, price) {
             if (confirm(price === 0 ? `要取消 ${empName} 的未點餐紀錄嗎？` : `要將 $${formatPrice(price)} 退回給 ${empName} 嗎？`)) {
@@ -783,16 +811,6 @@
             text += `══════════════════\n💰 今日現金總計：$${formatPrice(totalAmount)} 元`;
             window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`);
         }
-
-        function showQAnimation(isManualClick = false) {
-            const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
-            const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
-            let speech = pendingEmpsCount > 0 ? `老闆！還有 ${pendingEmpsCount} 位員工還沒決定午餐喔！快催催他們～` : (isManualClick ? ["太棒了！今天所有同仁的午餐都已經完美登錄完畢囉！✨", "點餐收單！別忘了打電話跟便當店訂餐喔～📞", "大功告成！今天大家都有飯吃了，小幫手祝您用餐愉快！🍱"][Math.floor(Math.random() * 3)] : "太棒了！今天所有同仁的午餐都已經完美登錄完畢囉！✨");
-            document.getElementById('q-speech-text').innerText = speech;
-            document.getElementById('q-animation-overlay').classList.remove('hidden');
-        }
-
-        function closeQAnimation() { document.getElementById('q-animation-overlay').classList.add('hidden'); }
 
         function switchTab(viewId) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden-view'));
