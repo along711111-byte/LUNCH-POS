@@ -40,8 +40,9 @@
         .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); } 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         
+        /* 已經移除強制隱藏的 display: none; 修復小幫手出不來的問題 */
         #loading-overlay { position: fixed; inset: 0; background: rgba(253, 249, 245, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #C85A44; text-align: center; }
-        #q-animation-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100000; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        #q-animation-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100000; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
         
         @keyframes bounce-in { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
         .anim-bubble { animation: bounce-in 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; animation-delay: 0.3s; opacity: 0; }
@@ -80,9 +81,14 @@
             </div>
 
             <div class="glass-panel rounded-3xl p-4">
-                <div class="flex items-center text-[#C85A44] font-bold text-sm mb-3">
-                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                    選擇對象 <span class="text-xs text-stone-400 font-normal ml-2">(可多選批量點餐)</span>
+                <div class="flex items-center justify-between text-[#C85A44] font-bold text-sm mb-3">
+                    <div class="flex items-center">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        選擇對象 <span class="text-xs text-stone-400 font-normal ml-2">(可多選批量)</span>
+                    </div>
+                    <button onclick="selectAllPending()" class="text-xs bg-orange-100 text-[#C85A44] px-2.5 py-1 rounded-md shadow-sm hover:bg-orange-200 transition">
+                        一鍵全選
+                    </button>
                 </div>
                 <div id="pending-employees" class="grid grid-cols-3 gap-2.5"></div>
             </div>
@@ -255,7 +261,6 @@
         let currentCartItems = [];
         let hasShownHelperToday = false; 
         
-        // 【修正重點】宣告全域取消訂閱的變數，防止監聽器疊加爆量
         let unsubOrders = null;
         let unsubTopups = null;
 
@@ -280,17 +285,15 @@
                     appData.stores = data.stores || [];
                     renderStoreSelector();
                     renderSettings();
-                    renderAll(); // 單純重新渲染，不再重複呼叫監聽器
+                    renderAll(); 
                 }
                 document.getElementById('global-loading').classList.add('hidden');
             });
             
-            // 【修正重點】獨立於 Settings 之外，只在初始化與換日期時呼叫一次
             loadDailyOrdersAndTopups();
         }
 
         function loadDailyOrdersAndTopups() {
-            // 切換日期或重新讀取時，先清空先前的監聽器，避免無限繁殖
             if (unsubOrders) unsubOrders();
             if (unsubTopups) unsubTopups();
             
@@ -328,7 +331,6 @@
             currentCartItems = [];
             hasShownHelperToday = false; 
             updateCartInfo();
-            // 換日期時，重新掛載對應日期的監聽器
             loadDailyOrdersAndTopups();
         }
 
@@ -364,6 +366,19 @@
 
         function toggleEmp(empName) {
             if (selectedEmployeesForCart.has(empName)) { selectedEmployeesForCart.delete(empName); } else { selectedEmployeesForCart.add(empName); }
+            updateCartInfo();
+            renderPendingEmployees();
+        }
+
+        // 新增的「一鍵全選」功能
+        function selectAllPending() {
+            const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
+            const pendingEmps = appData.employees.filter(emp => !orderedEmpNames.has(emp.name));
+            
+            pendingEmps.forEach(emp => {
+                selectedEmployeesForCart.add(emp.name);
+            });
+            
             updateCartInfo();
             renderPendingEmployees();
         }
@@ -449,7 +464,6 @@
                 selectedEmployeesForCart.clear(); currentCartItems = []; document.getElementById('cart-is-shared').checked = false;
                 updateCartInfo(); renderAll();
             } finally {
-                // 【修正重點】使用 finally 確保不管成功或斷線，讀取畫面絕對會關閉
                 document.getElementById('global-loading').classList.add('hidden');
             }
         }
