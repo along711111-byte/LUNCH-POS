@@ -139,8 +139,8 @@
                     <div id="admin-cash-on-hand" class="text-2xl font-black text-orange-500">$0</div>
                 </div>
                 <div class="text-right">
-                    <span class="text-stone-400 text-[10px] block">系統核心架構 v4.0 Clean</span>
-                    <span class="text-stone-400 text-[10px] block">月報結算精準對齊版</span>
+                    <span class="text-stone-400 text-[10px] block">系統核心架構 v4.1 Clean</span>
+                    <span class="text-stone-400 text-[10px] block">公休連動智慧版</span>
                 </div>
             </div>
 
@@ -249,13 +249,19 @@
         let currentCartItems = [];
         
         let hasShownHelperToday = false; 
-        let previousPendingCount = null; // 紀錄上一次未點餐的人數，用來判定是否為「剛好點完」
+        let previousPendingCount = null; 
         let unsubOrders = null;
         let unsubTopups = null;
 
         function formatPrice(num) {
             if (num === undefined || num === null || isNaN(num)) return "0";
             return num % 1 === 0 ? num.toString() : parseFloat(num.toFixed(1)).toString();
+        }
+
+        function formatClosedDays(days) {
+            if (!days || days.length === 0) return '無';
+            const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+            return days.map(d => dayNames[d]).join(', ');
         }
 
         async function init() {
@@ -295,11 +301,31 @@
 
         function renderStoreSelector() {
             const selector = document.getElementById('store-selector');
-            const previousValue = selector.value;
+            const previousValue = selector.value || currentSelectedStoreId;
             selector.innerHTML = '';
-            appData.stores.forEach(store => { selector.innerHTML += `<option value="${store.id}">選擇店家：${store.name}</option>`; });
-            if (previousValue && appData.stores.some(s => s.id === previousValue)) selector.value = previousValue;
-            else if (appData.stores.length > 0) selector.value = appData.stores[0].id;
+            
+            // 抓出選擇日期的星期幾 (0=日, 1=一...6=六)
+            const dayOfWeek = new Date(selectedDate).getDay();
+
+            // 篩選出當天「沒有公休」的店家
+            const availableStores = appData.stores.filter(store => {
+                if (!store.closedDays) return true;
+                return !store.closedDays.includes(dayOfWeek);
+            });
+
+            if (availableStores.length === 0) {
+                selector.innerHTML = `<option value="">(全數店家今日公休)</option>`;
+                currentSelectedStoreId = '';
+                return;
+            }
+
+            availableStores.forEach(store => { selector.innerHTML += `<option value="${store.id}">選擇店家：${store.name}</option>`; });
+            
+            if (previousValue && availableStores.some(s => s.id === previousValue)) {
+                selector.value = previousValue;
+            } else {
+                selector.value = availableStores[0].id; // 若原本選的店今天公休，自動跳到第一家有營業的
+            }
             currentSelectedStoreId = selector.value;
         }
 
@@ -309,12 +335,11 @@
             document.getElementById('topup-date').value = selectedDate; 
             selectedEmployeesForCart.clear();
             currentCartItems = [];
-            
-            // 換日期時，重置小幫手的狀態
             hasShownHelperToday = false; 
             previousPendingCount = null;
-            
             updateCartInfo();
+            
+            renderStoreSelector(); // 換日期時重新計算有哪些店家沒公休
             loadDailyOrdersAndTopups();
         }
 
@@ -495,7 +520,6 @@
             } else { infoPanel.classList.add('hidden'); }
         }
 
-        // 修改：精準判定「剛點完餐的瞬間」才觸發
         function checkAutoHelper() {
             const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
             const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
@@ -506,10 +530,9 @@
                     setTimeout(() => { showQAnimation(false); }, 600);
                 }
             }
-            previousPendingCount = pendingEmpsCount; // 更新歷史人數
+            previousPendingCount = pendingEmpsCount; 
         }
 
-        // 修改：加上詳細餐點統計與總金額
         function showQAnimation(isManualClick = false) {
             const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
             const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
@@ -531,6 +554,10 @@
                 }
             });
 
+            // 抓取當前店家的電話
+            const store = appData.stores.find(s => s.id === currentSelectedStoreId);
+            const storePhone = (store && store.phone) ? store.phone : '(尚未設定電話)';
+
             let speech = "";
             const textEl = document.getElementById('q-speech-text');
 
@@ -545,7 +572,7 @@
                         const count = parseFloat(itemCounts[itemName].toFixed(1));
                         speech += `▪️ ${itemName} × ${formatPrice(count)} 份\n`;
                     }
-                    speech += `\n💰 今日應付總額：$${formatPrice(totalAmount)} 元`;
+                    speech += `\n💰 今日應付總額：$${formatPrice(totalAmount)} 元\n📞 訂餐電話：${storePhone}`;
                 }
                 textEl.className = "text-[#4A3E3D] font-bold text-left leading-relaxed text-[15px] whitespace-pre-wrap w-full px-2";
             }
@@ -739,17 +766,72 @@
             appData.stores.forEach((store, sIdx) => {
                 let menuHtml = '';
                 store.menu.forEach((item, mIdx) => { menuHtml += `<div class="flex justify-between items-center pl-1 border-b border-orange-100/20 pb-2 last:border-0 last:pb-0 relative z-10"><span class="text-sm text-stone-500 font-medium">${item.name}</span><div class="flex items-center space-x-2"><span class="text-sm theme-text font-bold mr-1">$${formatPrice(item.price)}</span><button onclick="editMenuPrice(${sIdx}, ${mIdx})" class="text-[10px] bg-white/70 text-stone-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">改價</button><button onclick="deleteMenuItem(${sIdx}, ${mIdx})" class="text-[10px] bg-red-50/70 text-red-500 font-medium px-2 py-1 rounded transition shadow-xs backdrop-blur-xs">刪除</button></div></div>`; });
-                storeSettingContainer.innerHTML += `<div class="bg-white/55 p-4 rounded-3xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs"><div class="flex justify-between items-center mb-3 border-b border-orange-100/30 pb-3 relative z-10"><h4 class="font-bold text-sm text-[#4A3E3D] flex items-center"><svg class="w-4 h-4 mr-1.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>${store.name}</h4><div class="flex space-x-2"><button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">+ 餐點</button><button onclick="deleteStore(${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">刪店家</button></div></div><div class="space-y-3">${menuHtml || '<span class="text-xs text-stone-400 block py-1">目前菜單內尚無餐點</span>'}</div></div>`;
+                storeSettingContainer.innerHTML += `
+                    <div class="bg-white/55 p-4 rounded-3xl border border-orange-100/40 shadow-sm relative backdrop-blur-xs">
+                        <div class="flex justify-between items-center mb-3 border-b border-orange-100/30 pb-3 relative z-10">
+                            <div>
+                                <h4 class="font-bold text-sm text-[#4A3E3D] flex items-center">
+                                    <svg class="w-4 h-4 mr-1.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                    ${store.name}
+                                </h4>
+                                <div class="text-[10px] text-stone-500 mt-1.5 ml-5">📞 ${store.phone || '尚未設定'} | 💤 休: ${formatClosedDays(store.closedDays)}</div>
+                            </div>
+                            <div class="flex space-x-1.5">
+                                <button onclick="editStoreInfo(${sIdx})" class="text-xs text-stone-500 bg-white/70 hover:bg-orange-50 px-2 py-1 rounded-md shadow-xs backdrop-blur-xs transition">✏️編輯</button>
+                                <button onclick="addMenuItem(${sIdx})" class="text-xs text-[#C85A44] font-bold bg-white/70 hover:bg-orange-50 px-2 py-1 rounded-md shadow-xs backdrop-blur-xs transition">+ 餐點</button>
+                                <button onclick="deleteStore(${sIdx})" class="text-xs text-red-500 font-bold bg-red-50/70 hover:bg-red-100 px-2 py-1 rounded-md shadow-xs backdrop-blur-xs transition">刪店家</button>
+                            </div>
+                        </div>
+                        <div class="space-y-3">${menuHtml || '<span class="text-xs text-stone-400 block py-1">目前菜單內尚無餐點</span>'}</div>
+                    </div>`;
             });
         }
 
-        async function updateSettingsAction(callback) { document.getElementById('global-loading').classList.remove('hidden'); try { callback(); await db.collection("System").doc("Settings").set(appData); renderAll(); } finally { document.getElementById('global-loading').classList.add('hidden'); } }
+        async function updateSettingsAction(callback) { 
+            document.getElementById('global-loading').classList.remove('hidden'); 
+            try { 
+                callback(); 
+                await db.collection("System").doc("Settings").set(appData); 
+                renderStoreSelector(); // 設定更新後，確保選單也同步更新
+                renderAll(); 
+            } finally { 
+                document.getElementById('global-loading').classList.add('hidden'); 
+            } 
+        }
+
         function addEmployee() { const name = prompt("請輸入新員工姓名："); if(name) updateSettingsAction(() => appData.employees.push({name: name, balance: 0})); }
         function editEmpBalance(i) { const bal = prompt(`修改「${appData.employees[i].name}」的存摺可用餘額：`, appData.employees[i].balance); if(bal !== null && !isNaN(bal)) updateSettingsAction(() => appData.employees[i].balance = parseFloat(bal)); }
         function deleteEmployee(i) { if(confirm(`確定刪除 ${appData.employees[i].name} 嗎？`)) updateSettingsAction(() => appData.employees.splice(i, 1)); }
         function moveEmpUp(i) { if(i===0)return; updateSettingsAction(() => { let temp = appData.employees[i]; appData.employees[i] = appData.employees[i-1]; appData.employees[i-1] = temp; }); }
         function moveEmpDown(i) { if(i===appData.employees.length-1)return; updateSettingsAction(() => { let temp = appData.employees[i]; appData.employees[i] = appData.employees[i+1]; appData.employees[i+1] = temp; }); }
-        function addStore() { const name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => appData.stores.push({id: 'store_' + Date.now(), name: name, menu: []})); }
+        
+        function addStore() { const name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => appData.stores.push({id: 'store_' + Date.now(), name: name, phone: '', closedDays: [], menu: []})); }
+        
+        // 新增：編輯店家資訊 (名稱、電話、公休日)
+        function editStoreInfo(sIdx) {
+            let store = appData.stores[sIdx];
+            let newName = prompt("修改店家名稱：", store.name);
+            if (newName === null) return;
+            
+            let newPhone = prompt("修改/新增店家電話：", store.phone || "");
+            if (newPhone === null) return;
+            
+            let currentClosed = store.closedDays ? store.closedDays.join(',') : "";
+            let newClosed = prompt("請輸入固定公休日 (0=週日, 1=週一...6=週六)\n多天請用逗號分隔，例如 0,6 代表週休二日\n若無公休請留空：", currentClosed);
+            if (newClosed === null) return;
+
+            let daysArr = [];
+            if (newClosed.trim() !== '') {
+                daysArr = newClosed.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n >= 0 && n <= 6);
+            }
+
+            updateSettingsAction(() => {
+                appData.stores[sIdx].name = newName;
+                appData.stores[sIdx].phone = newPhone;
+                appData.stores[sIdx].closedDays = daysArr;
+            });
+        }
+
         function deleteStore(sIdx) { if(confirm(`確定刪除店家「${appData.stores[sIdx].name}」及旗下整張菜單嗎？`)) updateSettingsAction(() => appData.stores.splice(sIdx, 1)); }
         function addMenuItem(sIdx) { const name = prompt("餐點名稱："); if(!name) return; let price = prompt(`價格：`); if(price !== null && !isNaN(price)) updateSettingsAction(() => appData.stores[sIdx].menu.push({name: name, price: parseFloat(price)})); }
         function editMenuPrice(storeIndex, menuIndex) { let item = appData.stores[storeIndex].menu[menuIndex]; let newPrice = prompt(`「${item.name}」新價格：`, item.price); if(newPrice !== null && !isNaN(newPrice)) updateSettingsAction(() => item.price = parseFloat(newPrice)); }
