@@ -139,8 +139,8 @@
                     <div id="admin-cash-on-hand" class="text-2xl font-black text-orange-500">$0</div>
                 </div>
                 <div class="text-right">
-                    <span class="text-stone-400 text-[10px] block">系統核心架構 v4.1 Clean</span>
-                    <span class="text-stone-400 text-[10px] block">公休連動智慧版</span>
+                    <span class="text-stone-400 text-[10px] block">系統核心架構 v4.2 Clean</span>
+                    <span class="text-stone-400 text-[10px] block">電話精準反查版</span>
                 </div>
             </div>
 
@@ -188,7 +188,7 @@
             <details class="group bg-white/60 rounded-2xl border border-orange-100/50 shadow-sm overflow-hidden mt-6 transition-all duration-300 backdrop-blur-sm">
                 <summary class="list-none flex items-center justify-between p-4 text-xs font-bold text-stone-600 cursor-pointer select-none">
                     <span class="flex items-center">
-                        <svg class="w-4 h-4 mr-2 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        <svg class="w-4 h-4 mr-2 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002 2h2a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                         📝 收款歷史紀錄查閱 <span class="text-[10px] text-stone-400 font-normal ml-2">(點擊展開)</span>
                     </span>
                     <span class="transition group-open:rotate-180 text-stone-400 relative z-10"><svg fill="none" height="20" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M6 9l6 6 6-6"></path></svg></span>
@@ -304,10 +304,8 @@
             const previousValue = selector.value || currentSelectedStoreId;
             selector.innerHTML = '';
             
-            // 抓出選擇日期的星期幾 (0=日, 1=一...6=六)
             const dayOfWeek = new Date(selectedDate).getDay();
 
-            // 篩選出當天「沒有公休」的店家
             const availableStores = appData.stores.filter(store => {
                 if (!store.closedDays) return true;
                 return !store.closedDays.includes(dayOfWeek);
@@ -324,7 +322,7 @@
             if (previousValue && availableStores.some(s => s.id === previousValue)) {
                 selector.value = previousValue;
             } else {
-                selector.value = availableStores[0].id; // 若原本選的店今天公休，自動跳到第一家有營業的
+                selector.value = availableStores[0].id; 
             }
             currentSelectedStoreId = selector.value;
         }
@@ -339,7 +337,7 @@
             previousPendingCount = null;
             updateCartInfo();
             
-            renderStoreSelector(); // 換日期時重新計算有哪些店家沒公休
+            renderStoreSelector(); 
             loadDailyOrdersAndTopups();
         }
 
@@ -533,6 +531,7 @@
             previousPendingCount = pendingEmpsCount; 
         }
 
+        // 修改：精準反查餐點對應的店家電話
         function showQAnimation(isManualClick = false) {
             const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
             const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
@@ -541,22 +540,39 @@
             let sharedEmps = new Set();
             let itemCounts = {};
             let totalAmount = 0;
+            let orderedStoreSet = new Map(); // 用來過濾重複的店家
             
             appData.orders.forEach(order => {
                 if (order.food !== "未點餐") {
                     orderingEmps.add(order.empName);
                     totalAmount += order.price;
                     if (order.shared > 1) sharedEmps.add(order.empName);
+                    
                     order.food.split('+').forEach(itemName => {
                         if (!itemCounts[itemName]) itemCounts[itemName] = 0;
                         itemCounts[itemName] += (1 / order.shared);
+                        
+                        // 核心修復：拿著點到的餐點，去資料庫找是哪家店的
+                        appData.stores.forEach(store => {
+                            if (store.menu && store.menu.some(m => m.name === itemName)) {
+                                orderedStoreSet.set(store.id, store);
+                            }
+                        });
                     });
                 }
             });
 
-            // 抓取當前店家的電話
-            const store = appData.stores.find(s => s.id === currentSelectedStoreId);
-            const storePhone = (store && store.phone) ? store.phone : '(尚未設定電話)';
+            // 組合正確的電話字串
+            let storePhoneText = '';
+            if (orderedStoreSet.size > 0) {
+                let phoneList = [];
+                orderedStoreSet.forEach(store => {
+                    phoneList.push(`${store.name}：${store.phone || '尚未設定'}`);
+                });
+                storePhoneText = phoneList.join('\n📞 ');
+            } else {
+                storePhoneText = '(目前無訂餐紀錄)';
+            }
 
             let speech = "";
             const textEl = document.getElementById('q-speech-text');
@@ -572,7 +588,7 @@
                         const count = parseFloat(itemCounts[itemName].toFixed(1));
                         speech += `▪️ ${itemName} × ${formatPrice(count)} 份\n`;
                     }
-                    speech += `\n💰 今日應付總額：$${formatPrice(totalAmount)} 元\n📞 訂餐電話：${storePhone}`;
+                    speech += `\n💰 今日應付總額：$${formatPrice(totalAmount)} 元\n\n📞 訂餐電話：\n📞 ${storePhoneText}`;
                 }
                 textEl.className = "text-[#4A3E3D] font-bold text-left leading-relaxed text-[15px] whitespace-pre-wrap w-full px-2";
             }
@@ -792,7 +808,7 @@
             try { 
                 callback(); 
                 await db.collection("System").doc("Settings").set(appData); 
-                renderStoreSelector(); // 設定更新後，確保選單也同步更新
+                renderStoreSelector(); 
                 renderAll(); 
             } finally { 
                 document.getElementById('global-loading').classList.add('hidden'); 
@@ -807,7 +823,6 @@
         
         function addStore() { const name = prompt("請輸入新店家名稱："); if(name) updateSettingsAction(() => appData.stores.push({id: 'store_' + Date.now(), name: name, phone: '', closedDays: [], menu: []})); }
         
-        // 新增：編輯店家資訊 (名稱、電話、公休日)
         function editStoreInfo(sIdx) {
             let store = appData.stores[sIdx];
             let newName = prompt("修改店家名稱：", store.name);
