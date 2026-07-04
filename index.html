@@ -67,9 +67,13 @@
                 <input type="date" id="order-date" onchange="changeDate()" class="text-sm font-medium text-[#C85A44] bg-white/60 px-3 py-1.5 rounded-full border-none outline-none shadow-sm focus:ring-2 focus:ring-orange-300 transition">
             </div>
 
+            <!-- 店家選擇器 -->
             <div class="relative">
-                <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20"></select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-[#C85A44]"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                <div class="flex flex-col">
+                    <select id="store-selector" onchange="changeStore()" class="w-full glass-panel text-[#C85A44] text-lg rounded-2xl p-4 outline-none font-bold text-center appearance-none transition focus:ring-2 focus:ring-[#C85A44]/20"></select>
+                    <div id="store-lock-msg" class="text-center text-xs text-red-400 font-bold mt-1 hidden">(已鎖定，請先清空今日訂單)</div>
+                </div>
+                <div class="pointer-events-none absolute top-5 right-0 flex items-center px-5 text-[#C85A44]"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
             </div>
 
             <div class="glass-panel rounded-3xl p-4">
@@ -118,7 +122,11 @@
                     <h3 class="text-sm font-bold text-[#4A3E3D] flex items-center">
                         <span>處理明細 (<span id="display-selected-date" class="text-stone-500">今日</span>)</span>
                     </h3>
-                    <span class="text-xs text-stone-500 font-medium">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
+                    <div class="flex items-center space-x-2">
+                        <!-- 一鍵退單按鈕 -->
+                        <button onclick="cancelAllOrdersToday()" class="text-xs text-red-500 bg-red-50 hover:bg-red-100 font-bold px-2.5 py-1 rounded-md transition shadow-sm">一鍵清空今日訂單</button>
+                        <span class="text-xs text-stone-500 font-medium ml-2">總計：<span id="pos-today-total" class="font-bold theme-text text-lg ml-1">$0</span></span>
+                    </div>
                 </div>
                 <div id="completed-orders" class="space-y-2 mb-6"></div>
                 <div id="pos-detail-list" class="flex flex-wrap gap-2"></div>
@@ -139,7 +147,7 @@
                     <div id="admin-cash-on-hand" class="text-2xl font-black text-orange-500">$0</div>
                 </div>
                 <div class="text-right">
-                    <span class="text-stone-400 text-[10px] block">系統核心架構 v4.3 Clean</span>
+                    <span class="text-stone-400 text-[10px] block">系統核心架構 v4.5 Clean</span>
                     <span class="text-stone-400 text-[10px] block">智能演算法精準判定版</span>
                 </div>
             </div>
@@ -301,9 +309,24 @@
 
         function renderStoreSelector() {
             const selector = document.getElementById('store-selector');
+            const msgBox = document.getElementById('store-lock-msg');
             const previousValue = selector.value || currentSelectedStoreId;
             selector.innerHTML = '';
             
+            // 判斷是否鎖定店家：只要今天有任何一筆點餐或有人在購物車，就鎖定選單
+            const isLocked = appData.orders.length > 0 || currentCartItems.length > 0;
+            selector.disabled = isLocked;
+            
+            if (isLocked) {
+                selector.classList.add('opacity-60', 'cursor-not-allowed', 'bg-stone-100');
+                selector.classList.remove('bg-white');
+                msgBox.classList.remove('hidden');
+            } else {
+                selector.classList.remove('opacity-60', 'cursor-not-allowed', 'bg-stone-100');
+                selector.classList.add('bg-white');
+                msgBox.classList.add('hidden');
+            }
+
             const dayOfWeek = new Date(selectedDate).getDay();
 
             const availableStores = appData.stores.filter(store => {
@@ -319,7 +342,29 @@
 
             availableStores.forEach(store => { selector.innerHTML += `<option value="${store.id}">選擇店家：${store.name}</option>`; });
             
-            if (previousValue && availableStores.some(s => s.id === previousValue)) {
+            // 如果已鎖定，強制選單停留在今日訂單的主要店家
+            if (isLocked && appData.orders.length > 0) {
+                // 找出訂單中最常出現的店家
+                let storeMatchCounts = new Map();
+                appData.orders.filter(o => o.food !== '未點餐').forEach(order => {
+                    order.food.split('+').forEach(itemName => {
+                        appData.stores.forEach(store => {
+                            if (store.menu && store.menu.some(m => m.name === itemName)) {
+                                storeMatchCounts.set(store.id, (storeMatchCounts.get(store.id) || 0) + 1);
+                            }
+                        });
+                    });
+                });
+                let mainStoreId = null;
+                let maxMatches = 0;
+                storeMatchCounts.forEach((count, storeId) => {
+                    if (count > maxMatches) { maxMatches = count; mainStoreId = storeId; }
+                });
+                if (mainStoreId) {
+                    selector.value = mainStoreId;
+                    currentSelectedStoreId = mainStoreId;
+                }
+            } else if (previousValue && availableStores.some(s => s.id === previousValue)) {
                 selector.value = previousValue;
             } else {
                 selector.value = availableStores[0].id; 
@@ -344,6 +389,7 @@
         function changeStore() { currentSelectedStoreId = document.getElementById('store-selector').value; renderMenu(); }
 
         function renderAll() {
+            renderStoreSelector(); // 重新渲染以檢查鎖定狀態
             renderPendingEmployees();
             renderMenu();
             renderCompletedOrders();
@@ -412,7 +458,7 @@
             const index = currentCartItems.findIndex(i => i.name === foodName);
             if (index > -1) currentCartItems.splice(index, 1);
             else currentCartItems.push({ name: foodName, price: price });
-            updateCartInfo(); renderMenu();
+            updateCartInfo(); renderMenu(); renderStoreSelector(); // 重新渲染店家選單以觸發鎖定
         }
 
         function updateCartInfo() {
@@ -531,7 +577,6 @@
             previousPendingCount = pendingEmpsCount; 
         }
 
-        // 修改：導入「最高相似度權重演算法」精準反查店家
         function showQAnimation(isManualClick = false) {
             const orderedEmpNames = new Set(appData.orders.map(o => o.empName));
             const pendingEmpsCount = appData.employees.filter(emp => !orderedEmpNames.has(emp.name)).length;
@@ -540,7 +585,7 @@
             let sharedEmps = new Set();
             let itemCounts = {};
             let totalAmount = 0;
-            let storeMatchCounts = new Map(); // 紀錄每個店家的命中次數
+            let storeMatchCounts = new Map(); 
             
             appData.orders.forEach(order => {
                 if (order.food !== "未點餐") {
@@ -552,7 +597,6 @@
                         if (!itemCounts[itemName]) itemCounts[itemName] = 0;
                         itemCounts[itemName] += (1 / order.shared);
                         
-                        // 拿著點到的餐點，去資料庫算命中率
                         appData.stores.forEach(store => {
                             if (store.menu && store.menu.some(m => m.name === itemName)) {
                                 storeMatchCounts.set(store.id, (storeMatchCounts.get(store.id) || 0) + 1);
@@ -562,7 +606,6 @@
                 }
             });
 
-            // 找出符合最多次數的「唯一主要店家」
             let mainStoreId = null;
             let maxMatches = 0;
             storeMatchCounts.forEach((count, storeId) => {
@@ -610,6 +653,32 @@
                     if (empIdx > -1) appData.employees[empIdx].balance += price;
                     batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
                     await batch.commit(); renderAll();
+                } finally { document.getElementById('global-loading').classList.add('hidden'); }
+            }
+        }
+
+        // 新增功能：一鍵取消今日所有訂單
+        async function cancelAllOrdersToday() {
+            if (appData.orders.length === 0) {
+                alert("今日目前沒有任何點餐紀錄！");
+                return;
+            }
+            if (confirm(`【警告】\n確定要一鍵清空今日(${selectedDate})的所有點餐紀錄嗎？\n已扣款的金額將會自動退回給所有同仁。\n此操作無法復原！`)) {
+                document.getElementById('global-loading').classList.remove('hidden');
+                try {
+                    const batch = db.batch();
+                    
+                    appData.orders.forEach(order => {
+                        batch.delete(db.collection("Orders").doc(order.id));
+                        const empIdx = appData.employees.findIndex(e => e.name === order.empName);
+                        if (empIdx > -1 && order.price > 0) {
+                            appData.employees[empIdx].balance += order.price;
+                        }
+                    });
+
+                    batch.update(db.collection("System").doc("Settings"), { employees: appData.employees });
+                    await batch.commit(); 
+                    renderAll();
                 } finally { document.getElementById('global-loading').classList.add('hidden'); }
             }
         }
@@ -693,7 +762,7 @@
         }
 
         async function cancelTopup(id, empName, amount) {
-            if (confirm(`確定要刪除「${empName}」這筆 $${formatPrice(amount)} 的收款紀錄嗎？(員工餘額將會被扣回)`)) {
+            if (confirm(`確定要刪除「${empName} 收款 $${formatPrice(amount)}」的紀錄嗎？\n(會將款項從餘額中扣回)`)) {
                 document.getElementById('global-loading').classList.remove('hidden');
                 try {
                     const batch = db.batch(); batch.delete(db.collection("Topups").doc(id));
@@ -745,8 +814,7 @@
         }
 
         function shareToLine() {
-            let text = `🍱 【午餐帳務結算】 ${selectedDate.replace(/-/g, '/')}
-══════════════════\n`;
+            let text = `🍱 【午餐帳務結算】 ${selectedDate.replace(/-/g, '/')}\n══════════════════\n`;
             let itemCounts = {}; let totalAmount = 0;
             appData.orders.forEach(order => {
                 if (order.food !== "未點餐") { totalAmount += order.price; text += `👤 ${order.empName}：${order.food} [$${formatPrice(order.price)}]\n`; order.food.split('+').forEach(itemName => { if (!itemCounts[itemName]) itemCounts[itemName] = 0; itemCounts[itemName] += (1 / order.shared); }); }
